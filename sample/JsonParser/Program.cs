@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using Superpower;
-using Superpower.Display;
-using Superpower.Model;
-using Superpower.Parsers;
-using Superpower.Tokenizers;
+using ZParse;
+using ZParse.Display;
+using ZParse.Model;
+using ZParse.Parsers;
+using ZParse.Tokenizers;
 
 // This is an example JSON parser. It correctly and completely implements the
 // language spec at https://json.org (or should), but the goal isn't to use

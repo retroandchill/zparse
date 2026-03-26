@@ -1,0 +1,37 @@
+<Solution>
+  <Folder Name="/asset/">
+    <File Path="asset/Superpower-Transparent-400px.png" />
+    <File Path="asset/Superpower-White-200px.png" />
+    <File Path="asset/Superpower-White-400px.png" />
+    <File Path="asset/Superpower.snk" />
+    <File Path="asset/Superpower.svg" />
+  </Folder>
+  <Folder Name="/global/">
+    <File Path="appveyor.yml" />
+    <File Path="Benchmark.ps1" />
+    <File Path="Build.ps1" />
+    <File Path="global.json" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/results/">
+    <File Path="results/ArithmeticExpressionBenchmark-report-github.md" />
+    <File Path="results/ArithmeticExpressionBenchmark-report.csv" />
+    <File Path="results/ArithmeticExpressionBenchmark-report.html" />
+    <File Path="results/NumberListBenchmark-report-github.md" />
+    <File Path="results/NumberListBenchmark-report.csv" />
+    <File Path="results/NumberListBenchmark-report.html" />
+  </Folder>
+  <Folder Name="/sample/">
+    <Project Path="sample/DateTimeTextParser/DateTimeParser.csproj" />
+    <Project Path="sample/IntCalc/IntCalc.csproj" />
+    <Project Path="sample/JsonParser/JsonParser.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ZParse/ZParse.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/ZParse.Benchmarks/ZParse.Benchmarks.csproj" />
+    <Project Path="test/ZParse.Tests/ZParse.Tests.csproj" />
+  </Folder>
+</Solution>

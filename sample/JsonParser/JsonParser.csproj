@@ -7,7 +7,7 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <ProjectReference Include="../../src/Superpower/Superpower.csproj" />
+    <ProjectReference Include="..\..\src\ZParse\ZParse.csproj" />
   </ItemGroup>
 
 </Project>

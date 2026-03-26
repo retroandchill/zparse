@@ -1,0 +1,21 @@
+﻿using ZParse.Parsers;
+using ZParse.Tests.Support;
+using Xunit;
+
+namespace ZParse.Tests.Combinators
+{
+    public class MessageCombinatorTests
+    {
+        [Fact]
+        public void FailedParsingProducesMessage()
+        {
+            AssertParser.FailsWithMessage(Character.EqualTo('a').Message("hello"), "b", "Syntax error (line 1, column 1): hello.");
+        }
+
+        [Fact]
+        public void TokenFailedParsingProducesMessage()
+        {
+            AssertParser.FailsWithMessage(Token.EqualTo('a').Message("hello"), "b", "Syntax error (line 1, column 1): hello.");
+        }
+    }
+}

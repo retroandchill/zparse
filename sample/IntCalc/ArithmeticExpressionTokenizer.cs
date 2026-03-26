@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using Superpower.Model;
-using Superpower.Parsers;
-using Superpower;
+using ZParse.Model;
+using ZParse.Parsers;
+using ZParse;
 
 namespace IntCalc
 {

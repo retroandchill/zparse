@@ -1,5 +1,5 @@
-﻿using Superpower.Display;
-using Superpower.Model;
+﻿using ZParse.Display;
+using ZParse.Model;
 
 namespace IntCalc
 {
