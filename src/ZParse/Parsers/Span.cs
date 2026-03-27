@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using ZParse.Display;
 using ZParse.Model;
@@ -34,7 +35,7 @@ namespace ZParse.Parsers
         {
             if (length < 0) throw new ArgumentOutOfRangeException(nameof(length));
 
-            var expectations = new[] { "span of length " + length };
+            var expectations = ImmutableArray.Create($"span of length {length}");
             return input =>
             {
                 var remainder = input;
@@ -47,7 +48,7 @@ namespace ZParse.Parsers
                             return Result.Empty<TextSpan>(ch.Location, expectations);
 
                         var remaining = length - i;
-                        return Result.Empty<TextSpan>(ch.Location, new[] { $"{remaining} more {Friendly.Pluralize("character", remaining)}" });
+                        return Result.Empty<TextSpan>(ch.Location, [$"{remaining} more {Friendly.Pluralize("character", remaining)}"]);
                     }
                     remainder = ch.Remainder;
                 }
@@ -64,7 +65,7 @@ namespace ZParse.Parsers
         {
             if (text == null) throw new ArgumentNullException(nameof(text));
 
-            var expectations = new[] { Presentation.FormatLiteral(text) };
+            var expectations = ImmutableArray.Create(Presentation.FormatLiteral(text));
             return input =>
             {
                 var remainder = input;
@@ -76,7 +77,7 @@ namespace ZParse.Parsers
                         if (ch.Location == input)
                             return Result.Empty<TextSpan>(ch.Location, expectations);
 
-                        return Result.Empty<TextSpan>(ch.Location, new[] { Presentation.FormatLiteral(text[i]) });
+                        return Result.Empty<TextSpan>(ch.Location, [Presentation.FormatLiteral(text[i])]);
                     }
                     remainder = ch.Remainder;
                 }
@@ -94,7 +95,7 @@ namespace ZParse.Parsers
             if (text == null) throw new ArgumentNullException(nameof(text));
             var textUpper = text.ToUpperInvariant();
 
-            var expectations = new[] { Presentation.FormatLiteral(text) };
+            var expectations = ImmutableArray.Create(Presentation.FormatLiteral(text));
             return input =>
             {
                 var remainder = input;
@@ -106,7 +107,7 @@ namespace ZParse.Parsers
                         if (ch.Location == input)
                             return Result.Empty<TextSpan>(ch.Location, expectations);
 
-                        return Result.Empty<TextSpan>(ch.Location, new[] { Presentation.FormatLiteral(text[i]) });
+                        return Result.Empty<TextSpan>(ch.Location, [Presentation.FormatLiteral(text[i])]);
                     }
                     remainder = ch.Remainder;
                 }
@@ -121,7 +122,7 @@ namespace ZParse.Parsers
         /// <returns>The matched text.</returns>
         public static TextParser<TextSpan> EqualTo(char ch)
         {
-            var expectations = new[] { Presentation.FormatLiteral(ch) };
+            var expectations = ImmutableArray.Create(Presentation.FormatLiteral(ch));
             return input =>
             {
                 var result = input.ConsumeChar();
@@ -139,7 +140,7 @@ namespace ZParse.Parsers
         public static TextParser<TextSpan> EqualToIgnoreCase(char ch)
         {
             var chToUpper = char.ToUpperInvariant(ch);
-            var expectations = new[] { Presentation.FormatLiteral(ch) };
+            var expectations = ImmutableArray.Create(Presentation.FormatLiteral(ch));
             return input =>
             {
                 var result = input.ConsumeChar();
@@ -220,7 +221,7 @@ namespace ZParse.Parsers
         {
             if (regex == null) throw new ArgumentNullException(nameof(regex));
             var re = new Regex($"^{regex}", options);
-            var expectations = new[] { $"a match for regular expression `{regex}`" };
+            var expectations = ImmutableArray.Create($"a match for regular expression `{regex}`");
 
             return i =>
             {
@@ -277,7 +278,7 @@ namespace ZParse.Parsers
             if (text == null) throw new ArgumentNullException(nameof(text));
             if (text.Length == 0) throw new ArgumentOutOfRangeException(nameof(text), "A non-empty string is required.");
 
-            var expectations = new[] { $"a non-empty span without `{text}`" };
+            var expectations = ImmutableArray.Create($"a non-empty span without `{text}`");
             
             return input =>
             {

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Immutable;
 using ZParse.Util;
 
 namespace ZParse.Model
@@ -54,7 +55,7 @@ namespace ZParse.Model
         /// <summary>
         /// A list of expectations that were unmet, or null.
         /// </summary>
-        public string[]? Expectations { get; }
+        public ImmutableArray<string> Expectations { get; }
 
         internal bool IsPartial(TextSpan from) => from != Remainder;
 
@@ -80,11 +81,11 @@ namespace ZParse.Model
             _value = value;
             HasValue = true;
             ErrorMessage = null;
-            Expectations = null;
+            Expectations = [];
             Backtrack = backtrack;
         }
 
-        internal Result(TextSpan location, TextSpan remainder, string? errorMessage, string[]? expectations, bool backtrack)
+        internal Result(TextSpan location, TextSpan remainder, string? errorMessage, ImmutableArray<string> expectations, bool backtrack)
         {
             Location = location;
             Remainder = remainder;
@@ -95,7 +96,7 @@ namespace ZParse.Model
             Backtrack = backtrack;
         }
 
-        internal Result(TextSpan remainder, string? errorMessage, string[]? expectations, bool backtrack)
+        internal Result(TextSpan remainder, string? errorMessage, ImmutableArray<string> expectations, bool backtrack)
         {
             Location = Remainder = remainder;
             _value = default!; // Default value is not observable.
@@ -144,7 +145,7 @@ namespace ZParse.Model
                 message = $"unexpected {Display.Presentation.FormatLiteral(next)}";
             }
 
-            if (Expectations != null)
+            if (!Expectations.IsDefaultOrEmpty)
             {
                 var expected = Friendly.List(Expectations);
                 message += $", expected {expected}";

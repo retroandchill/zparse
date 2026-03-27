@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Immutable;
 using System.Linq;
 using ZParse.Display;
 using ZParse.Model;
@@ -25,10 +26,9 @@ namespace ZParse.Parsers
     /// </summary>
     public static class Character
     {
-        static TextParser<char> Matching(Func<char, bool> predicate, string[] expectations)
+        static TextParser<char> Matching(Func<char, bool> predicate, ImmutableArray<string> expectations)
         {
-            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-            if (expectations == null) throw new ArgumentNullException(nameof(expectations));
+            ArgumentNullException.ThrowIfNull(predicate);
 
             return input =>
             {
@@ -45,10 +45,10 @@ namespace ZParse.Parsers
         /// </summary>
         public static TextParser<char> Matching(Func<char, bool> predicate, string name)
         {
-            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-            if (name == null) throw new ArgumentNullException(nameof(name));
+            ArgumentNullException.ThrowIfNull(predicate);
+            ArgumentNullException.ThrowIfNull(name);
 
-            return Matching(predicate, new[] { name });
+            return Matching(predicate, [name]);
         }
 
         /// <summary>
@@ -59,8 +59,8 @@ namespace ZParse.Parsers
         /// <returns>A parser for characters except those matching <paramref name="predicate"/>.</returns>
         public static TextParser<char> Except(Func<char, bool> predicate, string description)
         {
-            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-            if (description == null) throw new ArgumentNullException(nameof(description));
+            ArgumentNullException.ThrowIfNull(predicate);
+            ArgumentNullException.ThrowIfNull(description);
 
             return Matching(c => !predicate(c), "any character except " + description);
         }
@@ -86,7 +86,7 @@ namespace ZParse.Parsers
         /// </summary>
         public static TextParser<char> In(params char[] chars)
         {
-            return Matching(chars.Contains, chars.Select(Presentation.FormatLiteral).ToArray());
+            return Matching(chars.Contains, [..chars.Select(Presentation.FormatLiteral)]);
         }
 
         /// <summary>
@@ -108,7 +108,7 @@ namespace ZParse.Parsers
         /// <summary>
         /// Parse any character.
         /// </summary>
-        public static TextParser<char> AnyChar { get; } = Matching(c => true, "any character");
+        public static TextParser<char> AnyChar { get; } = Matching(_ => true, "any character");
 
         /// <summary>
         /// Parse a whitespace character.
@@ -128,7 +128,7 @@ namespace ZParse.Parsers
         /// <summary>
         /// Parse a letter or digit.
         /// </summary>
-        public static TextParser<char> LetterOrDigit { get; } = Matching(char.IsLetterOrDigit, new[] { "letter", "digit" });
+        public static TextParser<char> LetterOrDigit { get; } = Matching(char.IsLetterOrDigit, ["letter", "digit"]);
 
         /// <summary>
         /// Parse a lowercase letter.

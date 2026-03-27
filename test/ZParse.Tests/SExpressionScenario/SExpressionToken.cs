@@ -1,18 +1,16 @@
 ﻿using ZParse.Display;
-using ZParse.Model;
 
-namespace ZParse.Tests.SExpressionScenario
+namespace ZParse.Tests.SExpressionScenario;
+
+internal enum SExpressionToken
 {
-    enum SExpressionToken
-    {
-        None,
-        Atom,
-        Number,
+    None,
+    Atom,
+    Number,
 
-        [Token(Description = "open parenthesis")]
-        LParen,
+    [Token(Description = "open parenthesis")]
+    LParen,
 
-        [Token(Description = "closing parenthesis")]
-        RParen
-    }
+    [Token(Description = "closing parenthesis")]
+    RParen
 }

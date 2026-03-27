@@ -40,7 +40,7 @@ namespace ZParse.Benchmarks.ArithmeticExpressionScenario
                 }
                 else
                 {
-                    yield return Result.Empty<ArithmeticExpressionToken>(next.Location, new[] { "number", "operator" });
+                    yield return Result.Empty<ArithmeticExpressionToken>(next.Location, ["number", "operator"]);
                 }
 
                 next = SkipWhiteSpace(next.Location);

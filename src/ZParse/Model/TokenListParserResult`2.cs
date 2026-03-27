@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Immutable;
 using ZParse.Display;
 using ZParse.Util;
 
@@ -76,7 +77,7 @@ namespace ZParse.Model
         /// <summary>
         /// A list of expectations that were unmet, or null.
         /// </summary>
-        public string[]? Expectations { get; }
+        public ImmutableArray<string> Expectations { get; }
 
         /// <summary>
         /// The parsed value.
@@ -103,11 +104,11 @@ namespace ZParse.Model
             HasValue = true;
             SubTokenErrorPosition = Position.Empty;
             ErrorMessage = null;
-            Expectations = null;
+            Expectations = [];
             Backtrack = backtrack;
         }
 
-        internal TokenListParserResult(TokenList<TKind> location, TokenList<TKind> remainder, Position errorPosition, string? errorMessage, string[]? expectations, bool backtrack)
+        internal TokenListParserResult(TokenList<TKind> location, TokenList<TKind> remainder, Position errorPosition, string? errorMessage, ImmutableArray<string> expectations, bool backtrack)
         {
             Location = location;
             Remainder = remainder;
@@ -119,7 +120,7 @@ namespace ZParse.Model
             Backtrack = backtrack;
         }
         
-        internal TokenListParserResult(TokenList<TKind> remainder, Position errorPosition, string? errorMessage, string[]? expectations, bool backtrack)
+        internal TokenListParserResult(TokenList<TKind> remainder, Position errorPosition, string? errorMessage, ImmutableArray<string> expectations, bool backtrack)
         {
             Location = Remainder = remainder;
             _value = default!; // Default value is not observable.
@@ -172,7 +173,7 @@ namespace ZParse.Model
                 message = $"unexpected {appearance}";
             }
 
-            if (Expectations != null)
+            if (!Expectations.IsDefaultOrEmpty)
             {
                 var expected = Friendly.List(Expectations);
                 message += $", expected {expected}";

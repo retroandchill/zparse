@@ -33,7 +33,7 @@ namespace ZParse.Tests.ComplexTokenScenario
 
                     if (next.HasValue && !char.IsPunctuation(next.Value) && !char.IsWhiteSpace(next.Value))
                     {
-                        yield return Result.Empty<SExpressionXToken>(next.Location, new[] {"whitespace", "punctuation"});
+                        yield return Result.Empty<SExpressionXToken>(next.Location, ["whitespace", "punctuation"]);
                     }
                 }
                 else

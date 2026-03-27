@@ -28,7 +28,7 @@ namespace ZParse.Benchmarks.NumberListScenario
                 }
                 else
                 {
-                    yield return Result.Empty<NumberListToken>(next.Location, new[] { "digit" });
+                    yield return Result.Empty<NumberListToken>(next.Location, ["digit"]);
                 }
 
                 next = SkipWhiteSpace(next.Location);

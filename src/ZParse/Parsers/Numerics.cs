@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Collections.Immutable;
 using System.Globalization;
 using ZParse.Model;
 using ZParse.Util;
@@ -25,9 +26,9 @@ namespace ZParse.Parsers
     //* of generics over numbers in C#.
     public static class Numerics
     {
-        static readonly string[] ExpectedDigit = { "digit" };
-        static readonly string[] ExpectedSignOrDigit = { "sign", "digit" };
-        static readonly string[] ExpectedHexDigit = { "hex digit" };
+        private static readonly ImmutableArray<string> ExpectedDigit = ["digit"];
+        private static readonly ImmutableArray<string> ExpectedSignOrDigit = ["sign", "digit"];
+        private static readonly ImmutableArray<string> ExpectedHexDigit = ["hex digit"];
 
         /// <summary>
         /// A string of digits.

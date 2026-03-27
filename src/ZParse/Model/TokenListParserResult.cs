@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Collections.Immutable;
 using System.Linq;
 using ZParse.Display;
 
@@ -31,7 +32,7 @@ namespace ZParse.Model
         /// <returns>An empty result.</returns>
         public static TokenListParserResult<TKind, T> Empty<TKind, T>(TokenList<TKind> remainder)
         {
-            return new TokenListParserResult<TKind, T>(remainder, Position.Empty, null, null, false);
+            return new TokenListParserResult<TKind, T>(remainder, Position.Empty, null, [], false);
         }
 
         /// <summary>
@@ -42,7 +43,7 @@ namespace ZParse.Model
         /// <param name="remainder">The start of un-parsed input.</param>
         /// <param name="expectations">Expectations that could not be fulfilled.</param>
         /// <returns>An empty result.</returns>
-        public static TokenListParserResult<TKind, T> Empty<TKind, T>(TokenList<TKind> remainder, string[] expectations)
+        public static TokenListParserResult<TKind, T> Empty<TKind, T>(TokenList<TKind> remainder, ImmutableArray<string> expectations)
         {
             return new TokenListParserResult<TKind, T>(remainder, Position.Empty, null, expectations, false);
         }
@@ -57,7 +58,7 @@ namespace ZParse.Model
         /// <returns>An empty result.</returns>
         public static TokenListParserResult<TKind, T> Empty<TKind, T>(TokenList<TKind> remainder, TKind[] expectations)
         {
-            var stringExpectations = expectations.Select(Presentation.FormatExpectation).ToArray();
+            var stringExpectations = expectations.Select(Presentation.FormatExpectation).ToImmutableArray();
             return new TokenListParserResult<TKind, T>(remainder, Position.Empty, null, stringExpectations, false);
         }
 
@@ -71,7 +72,7 @@ namespace ZParse.Model
         /// <returns>An empty result.</returns>
         public static TokenListParserResult<TKind, T> Empty<TKind, T>(TokenList<TKind> remainder, string errorMessage)
         {
-            return new TokenListParserResult<TKind, T>(remainder, Position.Empty, errorMessage, null, false);
+            return new TokenListParserResult<TKind, T>(remainder, Position.Empty, errorMessage, [], false);
         }
 
         /// <summary>
@@ -86,7 +87,7 @@ namespace ZParse.Model
         /// <returns>An empty result.</returns>
         public static TokenListParserResult<TKind, T> Empty<TKind, T>(TokenList<TKind> remainder, Position errorPosition, string errorMessage)
         {
-            return new TokenListParserResult<TKind, T>(remainder, errorPosition, errorMessage, null, false);
+            return new TokenListParserResult<TKind, T>(remainder, errorPosition, errorMessage, [], false);
         }
 
         /// <summary>
@@ -134,12 +135,14 @@ namespace ZParse.Model
                 expectations = second.Expectations;
             else if (second.Expectations != null)
             {
-                expectations = new string[first.Expectations!.Length + second.Expectations.Length];
+                var expectationsBuilder = ImmutableArray.CreateBuilder<string>(first.Expectations.Length + second.Expectations.Length);
                 var i = 0;
-                for (; i < first.Expectations!.Length; ++i)
-                    expectations[i] = first.Expectations![i];
+                for (; i < first.Expectations.Length; ++i)
+                    expectationsBuilder.Add(first.Expectations[i]);
                 for (var j = 0; j < second.Expectations.Length; ++i, ++j)
-                    expectations[i] = second.Expectations[j];
+                    expectationsBuilder.Add(second.Expectations[j]);
+                
+                expectations = expectationsBuilder.DrainToImmutable();
             }
 
             return new TokenListParserResult<TKind, T>(second.Remainder, second.SubTokenErrorPosition, first.ErrorMessage, expectations, second.Backtrack);

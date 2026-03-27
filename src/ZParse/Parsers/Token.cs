@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Immutable;
 using ZParse.Display;
 using ZParse.Model;
 
@@ -32,7 +33,7 @@ namespace ZParse.Parsers
         // ReSharper disable once MemberCanBePrivate.Global
         public static TokenListParser<TKind, Token<TKind>> EqualTo<TKind>(TKind kind)
         {
-            var expectations = new[] { Presentation.FormatExpectation(kind) };
+            var expectations = ImmutableArray.Create(Presentation.FormatExpectation(kind));
 
             return input =>
             {
@@ -102,13 +103,13 @@ namespace ZParse.Parsers
         // ReSharper disable once MemberCanBePrivate.Global
         public static TokenListParser<TKind, Token<TKind>> Matching<TKind>(Func<TKind, bool> predicate, string name)
         {
-            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-            if (name == null) throw new ArgumentNullException(nameof(name));
+            ArgumentNullException.ThrowIfNull(predicate);
+            ArgumentNullException.ThrowIfNull(name);
 
-            return Matching(predicate, new[] { name });
+            return Matching(predicate, [name]);
         }
 
-        private static TokenListParser<TKind, Token<TKind>> Matching<TKind>(Func<TKind, bool> predicate, string[] expectations)
+        private static TokenListParser<TKind, Token<TKind>> Matching<TKind>(Func<TKind, bool> predicate, ImmutableArray<string> expectations)
         {
             if (predicate == null) throw new ArgumentNullException(nameof(predicate));
             if (expectations == null) throw new ArgumentNullException(nameof(expectations));

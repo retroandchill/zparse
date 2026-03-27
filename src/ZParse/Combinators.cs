@@ -51,7 +51,7 @@ namespace ZParse
                     return TokenListParserResult.Value(uResult.Value, rt.Location, rt.Remainder);
 
                 var message = $"invalid {Presentation.FormatExpectation(rt.Value.Kind)}, {uResult.FormatErrorMessageFragment()}";
-                return new TokenListParserResult<TKind, U>(input, uResult.Remainder.Position, message, null, uResult.Backtrack);
+                return new TokenListParserResult<TKind, U>(input, uResult.Remainder.Position, message, [], uResult.Backtrack);
             };
         }
 
@@ -82,7 +82,7 @@ namespace ZParse
                 var problem = uResult.Remainder.IsAtEnd ? "incomplete" : "invalid";
                 var textError = uResult.Remainder.IsAtEnd ? (uResult.Expectations != null ? $", expected {Friendly.List(uResult.Expectations)}" : "") : $", {uResult.FormatErrorMessageFragment()}";
                 var message = $"{problem} {Presentation.FormatExpectation(rt.Value.Kind)}{textError}";
-                return new TokenListParserResult<TKind, U>(input, rt.Remainder, uResult.Remainder.Position, message, null, uResult.Backtrack);
+                return new TokenListParserResult<TKind, U>(input, rt.Remainder, uResult.Remainder.Position, message, [], uResult.Backtrack);
             };
         }
 
@@ -611,7 +611,7 @@ namespace ZParse
                 if (result.HasValue || result.IsPartial(input))
                     return result;
 
-                return TokenListParserResult.Empty<TKind, T>(result.Remainder, new[] { name });
+                return TokenListParserResult.Empty<TKind, T>(result.Remainder, [name]);
             };
         }
 
@@ -633,7 +633,7 @@ namespace ZParse
                 if (result.HasValue || result.IsPartial(input))
                     return result;
 
-                return Result.Empty<T>(result.Remainder, new[] { name });
+                return Result.Empty<T>(result.Remainder, [name]);
             };
         }
 

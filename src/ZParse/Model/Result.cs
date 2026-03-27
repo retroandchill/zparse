@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Collections.Immutable;
 using ZParse.Util;
 
 namespace ZParse.Model
@@ -29,7 +30,7 @@ namespace ZParse.Model
         /// <returns>A result.</returns>
         public static Result<T> Empty<T>(TextSpan remainder)
         {
-            return new Result<T>(remainder, null, null, false);
+            return new Result<T>(remainder, null, [], false);
         }
 
         /// <summary>
@@ -39,7 +40,7 @@ namespace ZParse.Model
         /// <param name="remainder">The start of un-parsed input.</param>
         /// <param name="expectations">Literal descriptions of expectations not met.</param>
         /// <returns>A result.</returns>
-        public static Result<T> Empty<T>(TextSpan remainder, string[] expectations)
+        public static Result<T> Empty<T>(TextSpan remainder, ImmutableArray<string> expectations)
         {
             return new Result<T>(remainder, null, expectations, false);
         }
@@ -53,7 +54,7 @@ namespace ZParse.Model
         /// <returns>A result.</returns>
         public static Result<T> Empty<T>(TextSpan remainder, string errorMessage)
         {
-            return new Result<T>(remainder, errorMessage, null, false);
+            return new Result<T>(remainder, errorMessage, [], false);
         }
 
         /// <summary>
@@ -97,7 +98,7 @@ namespace ZParse.Model
             if (expectations == null)
                 expectations = second.Expectations;
             else if (second.Expectations != null)
-                expectations = ArrayEnumerable.Concat(first.Expectations!, second.Expectations);
+                expectations = first.Expectations.AddRange(second.Expectations);
 
             return new Result<T>(second.Remainder, second.ErrorMessage, expectations, second.Backtrack);
         }
