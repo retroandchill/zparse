@@ -11,10 +11,10 @@ namespace ZParse.Benchmarks;
 [MemoryDiagnoser]
 public class SequencingBenchmark
 {
-    static readonly string Numbers = "123";
-    static readonly TextSpan Input = new TextSpan(Numbers);
+    private static readonly string Numbers = "123";
+    private static readonly TextSpan Input = new(Numbers);
 
-    static void AssertValues((char First, char Second, char Third) numbers)
+    private static void AssertValues((char First, char Second, char Third) numbers)
     {
         Assert.Equal('1', numbers.First);
         Assert.Equal('2', numbers.Second);
@@ -34,26 +34,25 @@ public class SequencingBenchmark
         BenchmarkRunner.Run<SequencingBenchmark>();
     }
 
-    static readonly TextParser<(char, char, char)> ThenParser =
-        Character.Digit.Then(first => 
+    private static readonly TextParser<(char, char, char)> ThenParser = Character.Digit.Then(
+        first =>
             Character.Digit.Then(second =>
-                Character.Digit.Then(third => Parse.Return((first, second, third)))));
+                Character.Digit.Then(third => Parse.Return((first, second, third)))
+            )
+    );
 
     [Benchmark(Baseline = true)]
-    public Result<(char, char, char)> ApplyThen()
+    public static Result<(char, char, char)> ApplyThen()
     {
         return ThenParser(Input);
     }
 
-    static readonly TextParser<(char, char, char)> SequenceParser =
-        Parse.Sequence(
-                Character.Digit,
-                Character.Digit,
-                Character.Digit)
-            .Select(t => t); // Even up the work done
+    private static readonly TextParser<(char, char, char)> SequenceParser = Parse
+        .Sequence(Character.Digit, Character.Digit, Character.Digit)
+        .Select(t => t); // Even up the work done
 
     [Benchmark]
-    public Result<(char, char, char)> ApplySequence()
+    public static Result<(char, char, char)> ApplySequence()
     {
         return SequenceParser(Input);
     }

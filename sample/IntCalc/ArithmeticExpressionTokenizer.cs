@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
+using ZParse;
 using ZParse.Model;
 using ZParse.Parsers;
-using ZParse;
 
 namespace IntCalc;
 
@@ -30,7 +30,11 @@ internal class ArithmeticExpressionTokenizer : Tokenizer<ArithmeticExpressionTok
             {
                 var integer = Numerics.Integer(next.Location);
                 next = integer.Remainder.ConsumeChar();
-                yield return Result.Value(ArithmeticExpressionToken.Number, integer.Location, integer.Remainder);
+                yield return Result.Value(
+                    ArithmeticExpressionToken.Number,
+                    integer.Location,
+                    integer.Remainder
+                );
             }
             else if (_operators.TryGetValue(ch, out var charToken))
             {
@@ -39,7 +43,10 @@ internal class ArithmeticExpressionTokenizer : Tokenizer<ArithmeticExpressionTok
             }
             else
             {
-                yield return Result.Empty<ArithmeticExpressionToken>(next.Location, ["number", "operator"]);
+                yield return Result.Empty<ArithmeticExpressionToken>(
+                    next.Location,
+                    ["number", "operator"]
+                );
             }
 
             next = SkipWhiteSpace(next.Location);

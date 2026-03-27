@@ -1,4 +1,4 @@
-﻿// Copyright 2016 Datalust, Superpower Contributors, Sprache Contributors
+// Copyright 2016 Datalust, Superpower Contributors, Sprache Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace ZParse.Model;
+using ZParse.Model;
+
+namespace ZParse;
 
 /// <summary>
-/// A structure with no information.
+/// A parser that consumes elements from a list of tokens.
 /// </summary>
-public struct Unit
-{
-    /// <summary>
-    /// The singleton value of the struct, with no value.
-    /// </summary>
-    public static Unit Value => default;
-}
+/// <typeparam name="T">The type of values produced by the parser.</typeparam>
+/// <typeparam name="TKind">The type of tokens being parsed.</typeparam>
+/// <param name="input">The list of tokens to parse.</param>
+/// <returns>A result with a parsed value, or an empty result indicating error.</returns>
+public delegate TokenListParserResult<TKind, T> TokenListParser<TKind, T>(TokenList<TKind> input);

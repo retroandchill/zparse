@@ -1,30 +1,28 @@
 ﻿using ZParse.Display;
-using ZParse.Model;
 
-namespace IntCalc
+namespace IntCalc;
+
+internal enum ArithmeticExpressionToken
 {
-    enum ArithmeticExpressionToken
-    {
-        None,
+    None,
 
-        Number,
+    Number,
 
-        [Token(Category="operator", Example = "+")]
-        Plus,
+    [Token(Category = "operator", Example = "+")]
+    Plus,
 
-        [Token(Category = "operator", Example = "-")]
-        Minus,
+    [Token(Category = "operator", Example = "-")]
+    Minus,
 
-        [Token(Category = "operator", Example = "*")]
-        Times,
+    [Token(Category = "operator", Example = "*")]
+    Times,
 
-        [Token(Category = "operator", Example = "/")]
-        Divide,
+    [Token(Category = "operator", Example = "/")]
+    Divide,
 
-        [Token(Example = "(")]
-        LParen,
+    [Token(Example = "(")]
+    LParen,
 
-        [Token(Example = ")")]
-        RParen
-    }
+    [Token(Example = ")")]
+    RParen,
 }

@@ -5,15 +5,8 @@ using ZParse.Parsers;
 
 namespace ZParse.Tests.NumberListScenario;
 
-internal class NumberListTokenizer : Tokenizer<NumberListToken>
+internal class NumberListTokenizer(bool useCustomErrors = false) : Tokenizer<NumberListToken>
 {
-    private readonly bool _useCustomErrors;
-
-    public NumberListTokenizer(bool useCustomErrors = false)
-    {
-        _useCustomErrors = useCustomErrors;
-    }
-
     protected override IEnumerable<Result<NumberListToken>> Tokenize(TextSpan span)
     {
         var next = SkipWhiteSpace(span);
@@ -27,13 +20,20 @@ internal class NumberListTokenizer : Tokenizer<NumberListToken>
             {
                 var integer = Numerics.Integer(next.Location);
                 next = integer.Remainder.ConsumeChar();
-                yield return Result.Value(NumberListToken.Number, integer.Location, integer.Remainder);
+                yield return Result.Value(
+                    NumberListToken.Number,
+                    integer.Location,
+                    integer.Remainder
+                );
             }
             else
             {
-                if (_useCustomErrors)
+                if (useCustomErrors)
                 {
-                    yield return Result.Empty<NumberListToken>(next.Location, "list must contain only numbers");
+                    yield return Result.Empty<NumberListToken>(
+                        next.Location,
+                        "list must contain only numbers"
+                    );
                 }
                 else
                 {

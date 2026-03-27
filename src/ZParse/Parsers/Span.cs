@@ -1,10 +1,10 @@
 ﻿// Copyright 2016 Datalust, Superpower Contributors, Sprache Contributors
-//  
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at  
+// You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0  
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,185 +14,189 @@
 
 using System;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using ZParse.Display;
 using ZParse.Model;
 using ZParse.Util;
 
-namespace ZParse.Parsers
+namespace ZParse.Parsers;
+
+/// <summary>
+/// Parsers for spans of characters.
+/// </summary>
+public static class Span
 {
     /// <summary>
-    /// Parsers for spans of characters.
+    /// Parse a span of length <paramref name="length"/>/>.
     /// </summary>
-    public static class Span
+    /// <param name="length">The number of characters to parse.</param>
+    /// <returns>The parsed span.</returns>
+    public static TextParser<TextSpan> Length(int length)
     {
-        /// <summary>
-        /// Parse a span of length <paramref name="length"/>/>.
-        /// </summary>
-        /// <param name="length">The number of characters to parse.</param>
-        /// <returns>The parsed span.</returns>
-        public static TextParser<TextSpan> Length(int length)
-        {
-            if (length < 0) throw new ArgumentOutOfRangeException(nameof(length));
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
 
-            var expectations = ImmutableArray.Create($"span of length {length}");
-            return input =>
+        var expectations = ImmutableArray.Create($"span of length {length}");
+        return input =>
+        {
+            var remainder = input;
+            for (var i = 0; i < length; ++i)
             {
-                var remainder = input;
-                for (var i = 0; i < length; ++i)
+                var ch = remainder.ConsumeChar();
+                if (!ch.HasValue)
                 {
-                    var ch = remainder.ConsumeChar();
-                    if (!ch.HasValue)
-                    {
-                        if (ch.Location == input)
-                            return Result.Empty<TextSpan>(ch.Location, expectations);
+                    if (ch.Location == input)
+                        return Result.Empty<TextSpan>(ch.Location, expectations);
 
-                        var remaining = length - i;
-                        return Result.Empty<TextSpan>(ch.Location, [$"{remaining} more {Friendly.Pluralize("character", remaining)}"]);
-                    }
-                    remainder = ch.Remainder;
+                    var remaining = length - i;
+                    return Result.Empty<TextSpan>(
+                        ch.Location,
+                        [$"{remaining} more {Friendly.Pluralize("character", remaining)}"]
+                    );
                 }
-                return Result.Value(input.Until(remainder), input, remainder);
-            };
-        }
+                remainder = ch.Remainder;
+            }
+            return Result.Value(input.Until(remainder), input, remainder);
+        };
+    }
 
-        /// <summary>
-        /// Match a span equal to <paramref name="text"/>.
-        /// </summary>
-        /// <param name="text">The text to match.</param>
-        /// <returns>The matched text.</returns>
-        public static TextParser<TextSpan> EqualTo(string text)
+    /// <summary>
+    /// Match a span equal to <paramref name="text"/>.
+    /// </summary>
+    /// <param name="text">The text to match.</param>
+    /// <returns>The matched text.</returns>
+    public static TextParser<TextSpan> EqualTo(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var expectations = ImmutableArray.Create(Presentation.FormatLiteral(text));
+        return input =>
         {
-            if (text == null) throw new ArgumentNullException(nameof(text));
-
-            var expectations = ImmutableArray.Create(Presentation.FormatLiteral(text));
-            return input =>
+            var remainder = input;
+            foreach (var t in text)
             {
-                var remainder = input;
-                for (var i = 0; i < text.Length; ++i)
+                var ch = remainder.ConsumeChar();
+                if (!ch.HasValue || ch.Value != t)
                 {
-                    var ch = remainder.ConsumeChar();
-                    if (!ch.HasValue || ch.Value != text[i])
-                    {
-                        if (ch.Location == input)
-                            return Result.Empty<TextSpan>(ch.Location, expectations);
-
-                        return Result.Empty<TextSpan>(ch.Location, [Presentation.FormatLiteral(text[i])]);
-                    }
-                    remainder = ch.Remainder;
+                    return Result.Empty<TextSpan>(
+                        ch.Location,
+                        ch.Location == input ? expectations : [Presentation.FormatLiteral(t)]
+                    );
                 }
-                return Result.Value(input.Until(remainder), input, remainder);
-            };
-        }
+                remainder = ch.Remainder;
+            }
+            return Result.Value(input.Until(remainder), input, remainder);
+        };
+    }
 
-        /// <summary>
-        /// Match a span equal to <paramref name="text"/>, ignoring invariant case.
-        /// </summary>
-        /// <param name="text">The text to match.</param>
-        /// <returns>The matched text.</returns>
-        public static TextParser<TextSpan> EqualToIgnoreCase(string text)
+    /// <summary>
+    /// Match a span equal to <paramref name="text"/>, ignoring invariant case.
+    /// </summary>
+    /// <param name="text">The text to match.</param>
+    /// <returns>The matched text.</returns>
+    public static TextParser<TextSpan> EqualToIgnoreCase(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var textUpper = text.ToUpperInvariant();
+
+        var expectations = ImmutableArray.Create(Presentation.FormatLiteral(text));
+        return input =>
         {
-            if (text == null) throw new ArgumentNullException(nameof(text));
-            var textUpper = text.ToUpperInvariant();
-
-            var expectations = ImmutableArray.Create(Presentation.FormatLiteral(text));
-            return input =>
+            var remainder = input;
+            for (var i = 0; i < textUpper.Length; ++i)
             {
-                var remainder = input;
-                for (var i = 0; i < textUpper.Length; ++i)
+                var ch = remainder.ConsumeChar();
+                if (!ch.HasValue || char.ToUpperInvariant(ch.Value) != textUpper[i])
                 {
-                    var ch = remainder.ConsumeChar();
-                    if (!ch.HasValue || char.ToUpperInvariant(ch.Value) != textUpper[i])
-                    {
-                        if (ch.Location == input)
-                            return Result.Empty<TextSpan>(ch.Location, expectations);
-
-                        return Result.Empty<TextSpan>(ch.Location, [Presentation.FormatLiteral(text[i])]);
-                    }
-                    remainder = ch.Remainder;
+                    return Result.Empty<TextSpan>(
+                        ch.Location,
+                        ch.Location == input ? expectations : [Presentation.FormatLiteral(text[i])]
+                    );
                 }
-                return Result.Value(input.Until(remainder), input, remainder);
-            };
-        }
+                remainder = ch.Remainder;
+            }
+            return Result.Value(input.Until(remainder), input, remainder);
+        };
+    }
 
-        /// <summary>
-        /// Match a span equal to a single character <paramref name="ch"/>.
-        /// </summary>
-        /// <param name="ch">The character to match.</param>
-        /// <returns>The matched text.</returns>
-        public static TextParser<TextSpan> EqualTo(char ch)
+    /// <summary>
+    /// Match a span equal to a single character <paramref name="ch"/>.
+    /// </summary>
+    /// <param name="ch">The character to match.</param>
+    /// <returns>The matched text.</returns>
+    public static TextParser<TextSpan> EqualTo(char ch)
+    {
+        var expectations = ImmutableArray.Create(Presentation.FormatLiteral(ch));
+        return input =>
         {
-            var expectations = ImmutableArray.Create(Presentation.FormatLiteral(ch));
-            return input =>
+            var result = input.ConsumeChar();
+            if (result.HasValue && result.Value == ch)
+                return Result.Value(input.Until(result.Remainder), input, result.Remainder);
+            return Result.Empty<TextSpan>(input, expectations);
+        };
+    }
+
+    /// <summary>
+    /// Match a span equal to a single character <paramref name="ch"/>, ignoring invariant character case.
+    /// </summary>
+    /// <param name="ch">The character to match.</param>
+    /// <returns>The matched text.</returns>
+    public static TextParser<TextSpan> EqualToIgnoreCase(char ch)
+    {
+        var chToUpper = char.ToUpperInvariant(ch);
+        var expectations = ImmutableArray.Create(Presentation.FormatLiteral(ch));
+        return input =>
+        {
+            var result = input.ConsumeChar();
+            if (result.HasValue && char.ToUpperInvariant(result.Value) == chToUpper)
+                return Result.Value(input.Until(result.Remainder), input, result.Remainder);
+            return Result.Empty<TextSpan>(input, expectations);
+        };
+    }
+
+    /// <summary>
+    /// Parse until finding a character for which <paramref name="predicate"/> returns true.
+    /// </summary>
+    /// <param name="predicate">A predicate.</param>
+    /// <returns>The matched text.</returns>
+    public static TextParser<TextSpan> WithoutAny(Func<char, bool> predicate)
+    {
+        return predicate != null
+            ? WithAll(ch => !predicate(ch))
+            : throw new ArgumentNullException(nameof(predicate));
+    }
+
+    /// <summary>
+    /// Parse until finding a character for which <paramref name="predicate"/> returns false.
+    /// </summary>
+    /// <param name="predicate">A predicate.</param>
+    /// <returns>The matched text.</returns>
+    public static TextParser<TextSpan> WithAll(Func<char, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+
+        return input =>
+        {
+            var next = input.ConsumeChar();
+            while (next.HasValue && predicate(next.Value))
             {
-                var result = input.ConsumeChar();
-                if (result.HasValue && result.Value == ch)
-                    return Result.Value(input.Until(result.Remainder), input, result.Remainder);
-                return Result.Empty<TextSpan>(input, expectations);
-            };
-        }
+                next = next.Remainder.ConsumeChar();
+            }
 
-        /// <summary>
-        /// Match a span equal to a single character <paramref name="ch"/>, ignoring invariant character case.
-        /// </summary>
-        /// <param name="ch">The character to match.</param>
-        /// <returns>The matched text.</returns>
-        public static TextParser<TextSpan> EqualToIgnoreCase(char ch)
-        {
-            var chToUpper = char.ToUpperInvariant(ch);
-            var expectations = ImmutableArray.Create(Presentation.FormatLiteral(ch));
-            return input =>
-            {
-                var result = input.ConsumeChar();
-                if (result.HasValue && char.ToUpperInvariant(result.Value) == chToUpper)
-                   return Result.Value(input.Until(result.Remainder), input, result.Remainder);
-                return Result.Empty<TextSpan>(input, expectations);
-            };
-        }
+            return next.Location == input
+                ? Result.Empty<TextSpan>(input)
+                : Result.Value(input.Until(next.Location), input, next.Location);
+        };
+    }
 
-        /// <summary>
-        /// Parse until finding a character for which <paramref name="predicate"/> returns true.
-        /// </summary>
-        /// <param name="predicate">A predicate.</param>
-        /// <returns>The matched text.</returns>
-        public static TextParser<TextSpan> WithoutAny(Func<char, bool> predicate)
-        {
-            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-
-            return WithAll(ch => !predicate(ch));
-        }
-
-
-        /// <summary>
-        /// Parse until finding a character for which <paramref name="predicate"/> returns false.
-        /// </summary>
-        /// <param name="predicate">A predicate.</param>
-        /// <returns>The matched text.</returns>
-        public static TextParser<TextSpan> WithAll(Func<char, bool> predicate)
-        {
-            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
-
-            return input =>
-            {
-                var next = input.ConsumeChar();
-                while (next.HasValue && predicate(next.Value))
-                {
-                    next = next.Remainder.ConsumeChar();
-                }
-                
-                return  next.Location == input ?
-                    Result.Empty<TextSpan>(input) :
-                    Result.Value(input.Until(next.Location), input, next.Location);
-            };
-        }
-
-        /// <summary>
-        /// Parse until a non-whitespace character is encountered, returning the matched span of whitespace.
-        /// </summary>
-        /// <remarks>
-        /// Requires at least one whitespace character.
-        /// </remarks>
-        public static TextParser<TextSpan> WhiteSpace { get; } = input =>
+    /// <summary>
+    /// Parse until a non-whitespace character is encountered, returning the matched span of whitespace.
+    /// </summary>
+    /// <remarks>
+    /// Requires at least one whitespace character.
+    /// </remarks>
+    public static TextParser<TextSpan> WhiteSpace { get; } =
+        input =>
         {
             var next = input.ConsumeChar();
             while (next.HasValue && char.IsWhiteSpace(next.Value))
@@ -200,96 +204,99 @@ namespace ZParse.Parsers
                 next = next.Remainder.ConsumeChar();
             }
 
-            return next.Location == input ?
-                Result.Empty<TextSpan>(input) :
-                Result.Value(input.Until(next.Location), input, next.Location);
+            return next.Location == input
+                ? Result.Empty<TextSpan>(input)
+                : Result.Value(input.Until(next.Location), input, next.Location);
         };
-       
-        /// <summary>
-        /// Parse until a whitespace character is encountered, returning the matched span of non-whitespace characters.
-        /// </summary>
-        public static TextParser<TextSpan> NonWhiteSpace { get; } = WithoutAny(char.IsWhiteSpace);
 
-        /// <summary>
-        /// Parse as much of the input as matches <paramref name="regex" />.
-        /// </summary>
-        /// <param name="regex">A regular expression. The expression should not be anchored with `^` (beginning of input), `$` (end of input) etc.</param>
-        /// <param name="options">Options to apply to the expression. Specifying `RegexOptions.Compiled` may speed up some cases.</param>
-        /// <returns>A parser that will match text matching the expression.</returns>
-        /// <exception cref="ArgumentNullException">The expression is null.</exception>
-        public static TextParser<TextSpan> Regex(string regex, RegexOptions options = RegexOptions.None)
+    /// <summary>
+    /// Parse until a whitespace character is encountered, returning the matched span of non-whitespace characters.
+    /// </summary>
+    public static TextParser<TextSpan> NonWhiteSpace { get; } = WithoutAny(char.IsWhiteSpace);
+
+    /// <summary>
+    /// Parse as much of the input as matches <paramref name="regex" />.
+    /// </summary>
+    /// <param name="regex">A regular expression. The expression should not be anchored with `^` (beginning of input), `$` (end of input) etc.</param>
+    /// <param name="options">Options to apply to the expression. Specifying `RegexOptions.Compiled` may speed up some cases.</param>
+    /// <returns>A parser that will match text matching the expression.</returns>
+    /// <exception cref="ArgumentNullException">The expression is null.</exception>
+    public static TextParser<TextSpan> Regex(
+        [StringSyntax(StringSyntaxAttribute.Regex)] string regex,
+        RegexOptions options = RegexOptions.None
+    )
+    {
+        ArgumentNullException.ThrowIfNull(regex);
+        var re = new Regex($"^{regex}", options);
+        var expectations = ImmutableArray.Create($"a match for regular expression `{regex}`");
+
+        return i =>
         {
-            if (regex == null) throw new ArgumentNullException(nameof(regex));
-            var re = new Regex($"^{regex}", options);
-            var expectations = ImmutableArray.Create($"a match for regular expression `{regex}`");
+            var m = re.Match(i.Source!, i.Position.Absolute, i.Length);
+            if (!m.Success || m.Length == 0)
+                return Result.Empty<TextSpan>(i, expectations);
 
-            return i =>
-            {
-                var m = re.Match(i.Source!, i.Position.Absolute, i.Length);
-                if (!m.Success || m.Length == 0)
-                    return Result.Empty<TextSpan>(i, expectations);
+            var remainder = i.Skip(m.Length);
+            return Result.Value(i.First(m.Length), i, remainder);
+        };
+    }
 
-                var remainder = i.Skip(m.Length);
-                return Result.Value(i.First(m.Length), i, remainder);
-            };
-        }
-        
-        /// <summary>
-        /// A handy adapter that takes any text parser, regardless of its result
-        /// type, and returns the span consumed by that parser.
-        /// </summary>
-        /// <param name="parser">A parser to apply.</param>
-        /// <typeparam name="T">The parser's (ignored) result type.</typeparam>
-        /// <returns>A parser that will match the span covered by <paramref name="parser"/>.</returns>
-        public static TextParser<TextSpan> MatchedBy<T>(TextParser<T> parser)
+    /// <summary>
+    /// A handy adapter that takes any text parser, regardless of its result
+    /// type, and returns the span consumed by that parser.
+    /// </summary>
+    /// <param name="parser">A parser to apply.</param>
+    /// <typeparam name="T">The parser's (ignored) result type.</typeparam>
+    /// <returns>A parser that will match the span covered by <paramref name="parser"/>.</returns>
+    public static TextParser<TextSpan> MatchedBy<T>(TextParser<T> parser)
+    {
+        return i =>
         {
-            return i =>
-            {
-                var result = parser(i);
-                
-                if (!result.HasValue)
-                    return Result.CastEmpty<T, TextSpan>(result);
-              
-                return Result.Value(
-                    i.Until(result.Remainder),
-                    i,
-                    result.Remainder);
-            };
-        }
+            var result = parser(i);
 
-        /// <summary>
-        /// Parse input until the <paramref name="text"/> string is present.
-        /// </summary>
-        /// <param name="text">The string to match until. The content of the <paramref name="text"/> is not included in the result.</param>
-        /// <returns>A parser that will match anything until the <paramref name="text"/> value is found or end-of-input is reached.</returns>
-        /// <exception cref="ArgumentNullException">The <paramref name="text"/> is null.</exception>
-        public static TextParser<TextSpan> Except(string text) => Except(text, StringComparison.Ordinal);
+            if (!result.HasValue)
+                return Result.CastEmpty<T, TextSpan>(result);
 
-        /// <summary>
-        /// Parse input until the <paramref name="text"/> string is present, ignoring character case.
-        /// </summary>
-        /// <param name="text">The string to match until. The content of the <paramref name="text"/> is not included in the result.</param>
-        /// <returns>A parser that will match anything until the <paramref name="text"/> value is found or end-of-input is reached.</returns>
-        /// <exception cref="ArgumentNullException">The <paramref name="text"/> is null.</exception>
-        public static TextParser<TextSpan> ExceptIgnoreCase(string text) => Except(text, StringComparison.OrdinalIgnoreCase);
-        
-        static TextParser<TextSpan> Except(string text, StringComparison comparison)
+            return Result.Value(i.Until(result.Remainder), i, result.Remainder);
+        };
+    }
+
+    /// <summary>
+    /// Parse input until the <paramref name="text"/> string is present.
+    /// </summary>
+    /// <param name="text">The string to match until. The content of the <paramref name="text"/> is not included in the result.</param>
+    /// <returns>A parser that will match anything until the <paramref name="text"/> value is found or end-of-input is reached.</returns>
+    /// <exception cref="ArgumentNullException">The <paramref name="text"/> is null.</exception>
+    public static TextParser<TextSpan> Except(string text) =>
+        Except(text, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Parse input until the <paramref name="text"/> string is present, ignoring character case.
+    /// </summary>
+    /// <param name="text">The string to match until. The content of the <paramref name="text"/> is not included in the result.</param>
+    /// <returns>A parser that will match anything until the <paramref name="text"/> value is found or end-of-input is reached.</returns>
+    /// <exception cref="ArgumentNullException">The <paramref name="text"/> is null.</exception>
+    public static TextParser<TextSpan> ExceptIgnoreCase(string text) =>
+        Except(text, StringComparison.OrdinalIgnoreCase);
+
+    private static TextParser<TextSpan> Except(string text, StringComparison comparison)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (text.Length == 0)
+            throw new ArgumentOutOfRangeException(nameof(text), "A non-empty string is required.");
+
+        var expectations = ImmutableArray.Create($"a non-empty span without `{text}`");
+
+        return input =>
         {
-            if (text == null) throw new ArgumentNullException(nameof(text));
-            if (text.Length == 0) throw new ArgumentOutOfRangeException(nameof(text), "A non-empty string is required.");
+            var matchIndex = input.Source!.IndexOf(text, input.Position.Absolute, comparison);
+            if (input.Length == 0 || matchIndex == input.Position.Absolute)
+                return Result.Empty<TextSpan>(input, expectations);
 
-            var expectations = ImmutableArray.Create($"a non-empty span without `{text}`");
-            
-            return input =>
-            {
-                var matchIndex = input.Source!.IndexOf(text, input.Position.Absolute, comparison);
-                if (input.Length == 0 || matchIndex == input.Position.Absolute)
-                    return Result.Empty<TextSpan>(input, expectations);
-
-                var matchLength = matchIndex == -1 ? input.Length : matchIndex - input.Position.Absolute;
-                var remainder = input.Skip(matchLength);
-                return Result.Value(input.First(matchLength), input, remainder);
-            };
-        }
+            var matchLength =
+                matchIndex == -1 ? input.Length : matchIndex - input.Position.Absolute;
+            var remainder = input.Skip(matchLength);
+            return Result.Value(input.First(matchLength), input, remainder);
+        };
     }
 }

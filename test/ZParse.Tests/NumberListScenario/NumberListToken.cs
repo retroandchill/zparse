@@ -1,8 +1,7 @@
-﻿namespace ZParse.Tests.NumberListScenario
+﻿namespace ZParse.Tests.NumberListScenario;
+
+internal enum NumberListToken
 {
-    enum NumberListToken
-    {
-        None,
-        Number
-    }
+    None,
+    Number,
 }

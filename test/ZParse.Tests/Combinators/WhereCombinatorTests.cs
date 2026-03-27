@@ -1,30 +1,30 @@
-﻿using ZParse.Parsers;
+﻿using Xunit;
+using ZParse.Parsers;
 using ZParse.Tests.Support;
-using Xunit;
 
-namespace ZParse.Tests.Combinators
+namespace ZParse.Tests.Combinators;
+
+public class WhereCombinatorTests
 {
-    public class WhereCombinatorTests
+    [Fact]
+    public void WhereFailsIfPrecedingParserFails()
     {
-        [Fact]
-        public void WhereFailsIfPrecedingParserFails()
-        {
-            AssertParser.Fails(Character.EqualTo('a').Where(_ => true), "b");
-        }
+        AssertParser.Fails(Character.EqualTo('a').Where(_ => true), "b");
+    }
 
-        [Fact]
-        public void WhereSucceedsWhenPredicateMatches()
-        {
-            AssertParser.SucceedsWith(Character.EqualTo('a').Where(a => a == 'a'), "a", 'a');
-        }
+    [Fact]
+    public void WhereSucceedsWhenPredicateMatches()
+    {
+        AssertParser.SucceedsWith(Character.EqualTo('a').Where(a => a == 'a'), "a", 'a');
+    }
 
-        [Fact]
-        public void WhereFailsWhenPredicateDoesNotMatch()
-        {
-            AssertParser.FailsWithMessage(
-                Character.EqualTo('a').Where(a => a != 'a', "character should be an A"),
-                "a",
-                "Syntax error (line 1, column 1): character should be an A.");
-        }
+    [Fact]
+    public void WhereFailsWhenPredicateDoesNotMatch()
+    {
+        AssertParser.FailsWithMessage(
+            Character.EqualTo('a').Where(a => a != 'a', "character should be an A"),
+            "a",
+            "Syntax error (line 1, column 1): character should be an A."
+        );
     }
 }

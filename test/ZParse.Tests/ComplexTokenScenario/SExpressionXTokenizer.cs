@@ -1,54 +1,76 @@
-using ZParse.Parsers;
-using ZParse.Model;
 using System.Collections.Generic;
+using ZParse.Model;
+using ZParse.Parsers;
 
-namespace ZParse.Tests.ComplexTokenScenario
+namespace ZParse.Tests.ComplexTokenScenario;
+
+internal class SExpressionXTokenizer : Tokenizer<SExpressionXToken>
 {
-    class SExpressionXTokenizer : Tokenizer<SExpressionXToken>
+    protected override IEnumerable<Result<SExpressionXToken>> Tokenize(TextSpan span)
     {
-        protected override IEnumerable<Result<SExpressionXToken>> Tokenize(TextSpan span)
+        var next = SkipWhiteSpace(span);
+        if (!next.HasValue)
+            yield break;
+
+        do
         {
-            var next = SkipWhiteSpace(span);
-            if (!next.HasValue)
-                yield break;
-
-            do
+            if (next.Value == '(')
             {
-                if (next.Value == '(')
+                yield return Result.Value(
+                    new SExpressionXToken(SExpressionType.LParen),
+                    next.Location,
+                    next.Remainder
+                );
+                next = next.Remainder.ConsumeChar();
+            }
+            else if (next.Value == ')')
+            {
+                yield return Result.Value(
+                    new SExpressionXToken(SExpressionType.RParen),
+                    next.Location,
+                    next.Remainder
+                );
+                next = next.Remainder.ConsumeChar();
+            }
+            else if (next.Value >= '0' && next.Value <= '9')
+            {
+                var integer = Numerics.IntegerInt32(next.Location);
+                next = integer.Remainder.ConsumeChar();
+
+                yield return Result.Value(
+                    new SExpressionXToken(integer.Value),
+                    integer.Location,
+                    integer.Remainder
+                );
+
+                if (
+                    next.HasValue
+                    && !char.IsPunctuation(next.Value)
+                    && !char.IsWhiteSpace(next.Value)
+                )
                 {
-                    yield return Result.Value(new SExpressionXToken(SExpressionType.LParen), next.Location, next.Remainder);
+                    yield return Result.Empty<SExpressionXToken>(
+                        next.Location,
+                        ["whitespace", "punctuation"]
+                    );
+                }
+            }
+            else
+            {
+                var beginIdentifier = next.Location;
+                while (next.HasValue && char.IsLetterOrDigit(next.Value))
+                {
                     next = next.Remainder.ConsumeChar();
                 }
-                else if (next.Value == ')')
-                {
-                    yield return Result.Value(new SExpressionXToken(SExpressionType.RParen), next.Location, next.Remainder);
-                    next = next.Remainder.ConsumeChar();
-                }
-                else if (next.Value >= '0' && next.Value <= '9')
-                {
-                    var integer = Numerics.IntegerInt32(next.Location);
-                    next = integer.Remainder.ConsumeChar();
 
-                    yield return Result.Value(new SExpressionXToken(integer.Value), integer.Location, integer.Remainder);
+                yield return Result.Value(
+                    new SExpressionXToken(SExpressionType.Atom),
+                    beginIdentifier,
+                    next.Location
+                );
+            }
 
-                    if (next.HasValue && !char.IsPunctuation(next.Value) && !char.IsWhiteSpace(next.Value))
-                    {
-                        yield return Result.Empty<SExpressionXToken>(next.Location, ["whitespace", "punctuation"]);
-                    }
-                }
-                else
-                {
-                    var beginIdentifier = next.Location;
-                    while (next.HasValue && char.IsLetterOrDigit(next.Value))
-                    {
-                        next = next.Remainder.ConsumeChar();
-                    }
-
-                    yield return Result.Value(new SExpressionXToken(SExpressionType.Atom), beginIdentifier, next.Location);
-                }
-
-                next = SkipWhiteSpace(next.Location);
-            } while (next.HasValue);
-        }
+            next = SkipWhiteSpace(next.Location);
+        } while (next.HasValue);
     }
 }

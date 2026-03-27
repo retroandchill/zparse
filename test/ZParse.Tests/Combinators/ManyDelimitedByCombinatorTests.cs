@@ -1,19 +1,21 @@
-﻿using ZParse.Parsers;
+﻿using Xunit;
+using ZParse.Parsers;
 using ZParse.Tests.Support;
-using Xunit;
 
-namespace ZParse.Tests.Combinators
+namespace ZParse.Tests.Combinators;
+
+public class ManyDelimitedByCombinatorTests
 {
-    public class ManyDelimitedByCombinatorTests
+    [Fact]
+    public void AnEndDelimiterCanBeSpecified()
     {
-        [Fact]
-        public void AnEndDelimiterCanBeSpecified()
-        {
-            AssertParser.SucceedsWith(
-                Token.EqualTo('a').Value('a')
-                    .ManyDelimitedBy(Token.EqualTo('b'), end: Token.EqualTo('c')),
-                "ababac",
-                new[] {'a', 'a', 'a'});
-        }
+        AssertParser.SucceedsWith(
+            Token
+                .EqualTo('a')
+                .Value('a')
+                .ManyDelimitedBy(Token.EqualTo('b'), end: Token.EqualTo('c')),
+            "ababac",
+            ['a', 'a', 'a']
+        );
     }
 }

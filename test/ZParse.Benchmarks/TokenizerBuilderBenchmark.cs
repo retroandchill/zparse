@@ -12,15 +12,16 @@ namespace ZParse.Benchmarks;
 [MemoryDiagnoser]
 public class TokenizerBuilderBenchmark
 {
-    const int NumbersLength = 1000;
-    static readonly string Numbers = string.Join(" ", Enumerable.Range(0, NumbersLength));
+    private const int NumbersLength = 1000;
+    private static readonly string Numbers = string.Join(" ", Enumerable.Range(0, NumbersLength));
 
-    static readonly Tokenizer<NumberListToken> BuilderTokenizer = new TokenizerBuilder<NumberListToken>()
-        .Match(Numerics.Integer, NumberListToken.Number)
-        .Ignore(Span.WhiteSpace)
-        .Build();
+    private static readonly Tokenizer<NumberListToken> BuilderTokenizer =
+        new TokenizerBuilder<NumberListToken>()
+            .Match(Numerics.Integer, NumberListToken.Number)
+            .Ignore(Span.WhiteSpace)
+            .Build();
 
-    static void AssertComplete(TokenList<NumberListToken> numbers)
+    private static void AssertComplete(TokenList<NumberListToken> numbers)
     {
         var tokens = numbers.ToArray();
         Assert.Equal(NumbersLength, tokens.Length);
@@ -45,13 +46,13 @@ public class TokenizerBuilderBenchmark
     }
 
     [Benchmark(Baseline = true)]
-    public TokenList<NumberListToken> HandCoded()
+    public static TokenList<NumberListToken> HandCoded()
     {
         return NumberListTokenizer.Instance.Tokenize(Numbers);
     }
 
     [Benchmark]
-    public TokenList<NumberListToken> Builder()
+    public static TokenList<NumberListToken> Builder()
     {
         return BuilderTokenizer.Tokenize(Numbers);
     }
