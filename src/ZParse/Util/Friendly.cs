@@ -14,7 +14,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using ZLinq;
 
 namespace ZParse.Util;
 
@@ -24,10 +27,7 @@ internal static class Friendly
     {
         ArgumentNullException.ThrowIfNull(noun);
 
-        if (count == 1)
-            return noun;
-
-        return noun + "s";
+        return count == 1 ? noun : $"{noun}s";
     }
 
     public static string List(IEnumerable<string> items)
@@ -35,23 +35,40 @@ internal static class Friendly
         ArgumentNullException.ThrowIfNull(items);
 
         // Keep the order stable
-        var unique = items.Distinct().ToList();
+        var unique = items.AsValueEnumerable().Distinct().ToList();
 
-        return unique.Count switch
+        return ListInternal(unique);
+    }
+
+    public static string List(ImmutableArray<string> items)
+    {
+        return List(items.AsSpan());
+    }
+
+    [OverloadResolutionPriority(int.MaxValue)]
+    public static string List(ReadOnlySpan<string> items)
+    {
+        // Keep the order stable
+        var unique = items.AsValueEnumerable().Distinct().ToList();
+
+        return ListInternal(unique);
+    }
+
+    private static string ListInternal(List<string> items)
+    {
+        return items.Count switch
         {
             0 => throw new ArgumentException(
                 "Friendly list formatting requires at least one element.",
                 nameof(items)
             ),
-            1 => unique.Single(),
-            _ => $"{string.Join(", ", unique.Take(unique.Count - 1))} or {unique.Last()}",
+            1 => items.Single(),
+            _ => $"{string.Join(", ", items.Take(items.Count - 1))} or {items.Last()}",
         };
     }
 
     public static string Clip(string value, int maxLength)
     {
-        if (value.Length > maxLength)
-            return value[..(maxLength - 3)] + "...";
-        return value;
+        return value.Length > maxLength ? $"{value[..(maxLength - 3)]}..." : value;
     }
 }

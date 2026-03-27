@@ -60,12 +60,12 @@ public readonly struct Position
     /// <summary>
     /// The position corresponding to the zero index.
     /// </summary>
-    public static Position Zero { get; } = new Position(0, 1, 1);
+    public static Position Zero { get; } = new(0, 1, 1);
 
     /// <summary>
     /// A position with no value.
     /// </summary>
-    public static Position Empty { get; } = default;
+    public static Position Empty => default;
 
     /// <summary>
     /// True if the position has a value.

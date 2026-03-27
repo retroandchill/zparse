@@ -110,7 +110,7 @@ public static class Character
     {
         return Matching(
             c => !chars.Contains(c),
-            "any character except " + Friendly.List(chars.Select(Presentation.FormatLiteral))
+            $"any character except {Friendly.List(chars.Select(Presentation.FormatLiteral))}"
         );
     }
 
