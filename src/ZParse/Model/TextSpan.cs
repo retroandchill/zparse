@@ -94,7 +94,7 @@ public readonly struct TextSpan : IEquatable<TextSpan>
 
     private void EnsureHasValue()
     {
-        if (Source == null)
+        if (Source is null)
             throw new InvalidOperationException("String span has no value.");
     }
 
@@ -226,7 +226,7 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     /// <inheritdoc/>
     public override string ToString()
     {
-        return Source != null ? ToStringValue() : "(empty source span)";
+        return Source is not null ? ToStringValue() : "(empty source span)";
     }
 
     /// <summary>

@@ -172,7 +172,7 @@ public struct TokenListParserResult<TKind, T>
     /// <returns>The error fragment.</returns>
     public string FormatErrorMessageFragment()
     {
-        if (ErrorMessage != null)
+        if (ErrorMessage is not null)
             return ErrorMessage;
 
         string message;
@@ -364,9 +364,9 @@ public static class TokenListParserResult
             return second;
 
         var expectations = first.Expectations;
-        if (expectations == null)
+        if (expectations.IsDefaultOrEmpty)
             expectations = second.Expectations;
-        else if (second.Expectations != null)
+        else if (!second.Expectations.IsDefaultOrEmpty)
         {
             var expectationsBuilder = ImmutableArray.CreateBuilder<string>(
                 first.Expectations.Length + second.Expectations.Length

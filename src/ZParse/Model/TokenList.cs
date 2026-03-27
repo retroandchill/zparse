@@ -72,7 +72,7 @@ public readonly struct TokenList<TKind> : IEquatable<TokenList<TKind>>, IEnumera
 
     private void EnsureHasValue()
     {
-        if (_tokens == null)
+        if (_tokens is null)
             throw new InvalidOperationException("Token list has no value.");
     }
 
@@ -159,7 +159,7 @@ public readonly struct TokenList<TKind> : IEquatable<TokenList<TKind>>, IEnumera
     /// <inheritdoc/>
     public override string ToString()
     {
-        return _tokens != null ? "Token list" : "Token list (empty)";
+        return _tokens is not null ? "Token list" : "Token list (empty)";
     }
 
     // A mildly expensive way to find the "end of input" position for error reporting.

@@ -88,11 +88,9 @@ public static class Combinators
 
                 var problem = uResult.Remainder.IsAtEnd ? "incomplete" : "invalid";
                 var textError = uResult.Remainder.IsAtEnd
-                    ? (
-                        uResult.Expectations != null
-                            ? $", expected {Friendly.List(uResult.Expectations)}"
-                            : ""
-                    )
+                    ? !uResult.Expectations.IsDefaultOrEmpty
+                        ? $", expected {Friendly.List(uResult.Expectations)}"
+                        : ""
                     : $", {uResult.FormatErrorMessageFragment()}";
                 var message =
                     $"{problem} {Presentation.FormatExpectation(rt.Value.Kind)}{textError}";
@@ -299,7 +297,7 @@ public static class Combinators
 
             // ReSharper disable once ConvertClosureToMethodGroup
 
-            if (end != null)
+            if (end is not null)
                 return parser
                     .AtLeastOnceDelimitedBy(delimiter)
                     .Then(p => end.Value(p))

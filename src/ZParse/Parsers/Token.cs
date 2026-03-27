@@ -81,7 +81,7 @@ public static class Token
     /// <returns>A parser that will match tokens with the specified kind and value.</returns>
     public static TokenListParser<TKind, Token<TKind>> EqualToValue<TKind>(TKind kind, string value)
     {
-        return value == null
+        return value is null
             ? throw new ArgumentNullException(nameof(value))
             : EqualTo(kind)
                 .Where(t => t.Span.EqualsValue(value))
@@ -100,7 +100,7 @@ public static class Token
         string value
     )
     {
-        return value == null
+        return value is null
             ? throw new ArgumentNullException(nameof(value))
             : EqualTo(kind)
                 .Where(t => t.Span.EqualsValueIgnoreCase(value))

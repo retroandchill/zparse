@@ -370,7 +370,7 @@ internal static class Program
     {
         Console.Write("json> ");
         var line = Console.ReadLine();
-        while (line != null)
+        while (line is not null)
         {
             if (!string.IsNullOrWhiteSpace(line))
             {

@@ -161,7 +161,7 @@ public static class Span
     /// <returns>The matched text.</returns>
     public static TextParser<TextSpan> WithoutAny(Func<char, bool> predicate)
     {
-        return predicate != null
+        return predicate is not null
             ? WithAll(ch => !predicate(ch))
             : throw new ArgumentNullException(nameof(predicate));
     }

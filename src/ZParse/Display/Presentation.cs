@@ -37,7 +37,7 @@ internal static class Presentation
             return TryGetTokenAttribute(typeof(TKind));
 
         var field = kindTypeInfo.GetDeclaredField(kind!.ToString()!);
-        if (field != null)
+        if (field is not null)
         {
             return field.GetCustomAttribute<TokenAttribute>()
                 ?? TryGetTokenAttribute(typeof(TKind));
@@ -49,13 +49,15 @@ internal static class Presentation
     public static string FormatExpectation<TKind>(TKind kind)
     {
         var description = TryGetTokenAttribute(kind);
-        if (description == null)
+        if (description is null)
             return FormatKind(kind!);
 
-        if (description.Description != null)
+        if (description.Description is not null)
             return description.Description;
 
-        return description.Example != null ? FormatLiteral(description.Example) : FormatKind(kind!);
+        return description.Example is not null
+            ? FormatLiteral(description.Example)
+            : FormatKind(kind!);
     }
 
     public static string FormatAppearance<TKind>(TKind kind, string value)
@@ -63,13 +65,13 @@ internal static class Presentation
         var clipped = FormatLiteral(Friendly.Clip(value, 12));
 
         var description = TryGetTokenAttribute(kind);
-        if (description == null)
+        if (description is null)
             return $"{FormatKind(kind!)} {clipped}";
 
-        if (description.Category != null)
+        if (description.Category is not null)
             return $"{description.Category} {clipped}";
 
-        return description.Example != null ? clipped : $"{FormatKind(kind!)} {clipped}";
+        return description.Example is not null ? clipped : $"{FormatKind(kind!)} {clipped}";
     }
 
     public static string FormatLiteral(char literal)

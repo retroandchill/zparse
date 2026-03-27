@@ -25,7 +25,7 @@ public class SpanTests
         var parser = Span.Regex(regex);
         var i = new TextSpan(input).Skip(start).First(length == -1 ? input.Length - start : length);
         var r = parser(i);
-        if (match == null && !r.HasValue)
+        if (match is null && !r.HasValue)
             return; // Success, shouldn't have matched
 
         Assert.Equal(match, i.Until(r.Remainder).ToStringValue());
