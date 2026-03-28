@@ -88,6 +88,7 @@ internal static class AssertParser
 
     // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Global
     public static void FailsWithMessage<T>(TextParser<T> parser, string input, string message)
+        where T : allows ref struct
     {
         // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
         FailsWith(

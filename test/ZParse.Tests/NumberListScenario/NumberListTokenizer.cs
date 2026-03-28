@@ -1,47 +1,70 @@
-﻿using System;
-using System.Collections.Generic;
-using ZParse.Model;
-using ZParse.Parsers;
+﻿using ZParse.Model;
 
 namespace ZParse.Tests.NumberListScenario;
 
-internal class NumberListTokenizer(bool useCustomErrors = false) : Tokenizer<NumberListToken>
+internal class NumberListTokenizer(bool useCustomErrors = false)
+    : Tokenizer<NumberListToken, NumberListTokenizer.Enumerator>
 {
-    protected override IEnumerable<Result<NumberListToken>> Tokenize(TextSpan span)
+    public static NumberListTokenizer Instance { get; } = new();
+
+    protected override Enumerator Tokenize(TextSpan span)
     {
         var next = SkipWhiteSpace(span);
-        if (!next.HasValue)
-            yield break;
+        return new Enumerator(next, useCustomErrors);
+    }
 
-        do
+    public ref struct Enumerator : ITokenEnumerator<NumberListToken>
+    {
+        private Result<char> _next;
+        private readonly bool _useCustomErrors;
+
+        internal Enumerator(Result<char> next, bool useCustomErrors = false)
         {
-            var ch = next.Value;
+            _next = next;
+            _useCustomErrors = useCustomErrors;
+        }
+
+        public bool NextToken(out Result<NumberListToken> token)
+        {
+            if (!_next.HasValue)
+            {
+                token = default;
+                return false;
+            }
+
+            var ch = _next.Value;
             if (ch is >= '0' and <= '9')
             {
-                var integer = Numerics.Integer(next.Location);
-                next = integer.Remainder.ConsumeChar();
-                yield return Result.Value(
-                    NumberListToken.Number,
-                    integer.Location,
-                    integer.Remainder
-                );
+                var start = _next;
+                _next = _next.Remainder.ConsumeChar();
+                while (_next.HasValue && _next.Value >= '0' && _next.Value <= '9')
+                {
+                    _next = _next.Remainder.ConsumeChar();
+                }
+                token = Result.Value(NumberListToken.Number, start.Location, _next.Location);
             }
             else
             {
-                if (useCustomErrors)
+                if (_useCustomErrors)
                 {
-                    yield return Result.Empty<NumberListToken>(
-                        next.Location,
+                    token = Result.Empty<NumberListToken>(
+                        _next.Location,
                         "list must contain only numbers"
                     );
                 }
                 else
                 {
-                    yield return Result.Empty<NumberListToken>(next.Location, ["digit"]);
+                    token = Result.Empty<NumberListToken>(_next.Location, ["digit"]);
                 }
             }
 
-            next = SkipWhiteSpace(next.Location);
-        } while (next.HasValue);
+            _next = SkipWhiteSpace(_next.Location);
+            return true;
+        }
+
+        public void Dispose()
+        {
+            // No resources to dispose of
+        }
     }
 }

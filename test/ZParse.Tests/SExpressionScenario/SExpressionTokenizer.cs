@@ -4,61 +4,78 @@ using ZParse.Parsers;
 
 namespace ZParse.Tests.SExpressionScenario;
 
-internal class SExpressionTokenizer : Tokenizer<SExpressionToken>
+internal class SExpressionTokenizer : Tokenizer<SExpressionToken, SExpressionTokenizer.Enumerator>
 {
-    protected override IEnumerable<Result<SExpressionToken>> Tokenize(TextMemory memory)
+    protected override Enumerator Tokenize(TextSpan span)
     {
-        var next = SkipWhiteSpace(memory);
-        if (!next.HasValue)
-            yield break;
+        var next = SkipWhiteSpace(span);
+        return new Enumerator(next);
+    }
 
-        do
+    public ref struct Enumerator : ITokenEnumerator<SExpressionToken>
+    {
+        private Result<char> _next;
+
+        internal Enumerator(Result<char> next)
         {
-            if (next.Value == '(')
-            {
-                yield return Result.Value(SExpressionToken.LParen, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (next.Value == ')')
-            {
-                yield return Result.Value(SExpressionToken.RParen, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (next.Value is >= '0' and <= '9')
-            {
-                var integer = Numerics.Integer(next.Location);
-                next = integer.Remainder.ConsumeChar();
+            _next = next;
+        }
 
-                yield return Result.Value(
-                    SExpressionToken.Number,
-                    integer.Location,
-                    integer.Remainder
-                );
+        public bool NextToken(out Result<SExpressionToken> token)
+        {
+            if (!_next.HasValue)
+            {
+                token = default;
+                return false;
+            }
+
+            if (_next.Value == '(')
+            {
+                token = Result.Value(SExpressionToken.LParen, _next.Location, _next.Remainder);
+                _next = _next.Remainder.ConsumeChar();
+            }
+            else if (_next.Value == ')')
+            {
+                token = Result.Value(SExpressionToken.RParen, _next.Location, _next.Remainder);
+                _next = _next.Remainder.ConsumeChar();
+            }
+            else if (_next.Value is >= '0' and <= '9')
+            {
+                var integer = Numerics.Integer(_next.Location);
+                _next = integer.Remainder.ConsumeChar();
+
+                token = Result.Value(SExpressionToken.Number, integer.Location, integer.Remainder);
 
                 if (
-                    next.HasValue
-                    && !char.IsPunctuation(next.Value)
-                    && !char.IsWhiteSpace(next.Value)
+                    _next.HasValue
+                    && !char.IsPunctuation(_next.Value)
+                    && !char.IsWhiteSpace(_next.Value)
                 )
                 {
-                    yield return Result.Empty<SExpressionToken>(
-                        next.Location,
+                    token = Result.Empty<SExpressionToken>(
+                        _next.Location,
                         ["whitespace", "punctuation"]
                     );
                 }
             }
             else
             {
-                var beginIdentifier = next.Location;
-                while (next.HasValue && char.IsLetterOrDigit(next.Value))
+                var beginIdentifier = _next.Location;
+                while (_next.HasValue && char.IsLetterOrDigit(_next.Value))
                 {
-                    next = next.Remainder.ConsumeChar();
+                    _next = _next.Remainder.ConsumeChar();
                 }
 
-                yield return Result.Value(SExpressionToken.Atom, beginIdentifier, next.Location);
+                token = Result.Value(SExpressionToken.Atom, beginIdentifier, _next.Location);
             }
 
-            next = SkipWhiteSpace(next.Location);
-        } while (next.HasValue);
+            _next = SkipWhiteSpace(_next.Location);
+            return true;
+        }
+
+        public void Dispose()
+        {
+            // No resources to dispose of
+        }
     }
 }

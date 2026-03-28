@@ -1,37 +1,57 @@
-﻿using System.Collections.Generic;
-using ZParse.Model;
+﻿using ZParse.Model;
 
 namespace ZParse.Benchmarks.NumberListScenario;
 
-public class NumberListTokenizer : Tokenizer<NumberListToken>
+public class NumberListTokenizer : Tokenizer<NumberListToken, NumberListTokenizer.Enumerator>
 {
-    public static NumberListTokenizer Instance { get; } = new NumberListTokenizer();
+    public static NumberListTokenizer Instance { get; } = new();
 
-    protected override IEnumerable<Result<NumberListToken>> Tokenize(TextSpan span)
+    protected override Enumerator Tokenize(TextSpan span)
     {
         var next = SkipWhiteSpace(span);
-        if (!next.HasValue)
-            yield break;
+        return new Enumerator(next);
+    }
 
-        do
+    public ref struct Enumerator : ITokenEnumerator<NumberListToken>
+    {
+        private Result<char> _next;
+
+        internal Enumerator(Result<char> next)
         {
-            var ch = next.Value;
-            if (ch >= '0' && ch <= '9')
+            _next = next;
+        }
+
+        public bool NextToken(out Result<NumberListToken> token)
+        {
+            if (!_next.HasValue)
             {
-                var start = next;
-                next = next.Remainder.ConsumeChar();
-                while (next.HasValue && next.Value >= '0' && next.Value <= '9')
+                token = default;
+                return false;
+            }
+
+            var ch = _next.Value;
+            if (ch is >= '0' and <= '9')
+            {
+                var start = _next;
+                _next = _next.Remainder.ConsumeChar();
+                while (_next.HasValue && _next.Value >= '0' && _next.Value <= '9')
                 {
-                    next = next.Remainder.ConsumeChar();
+                    _next = _next.Remainder.ConsumeChar();
                 }
-                yield return Result.Value(NumberListToken.Number, start.Location, next.Location);
+                token = Result.Value(NumberListToken.Number, start.Location, _next.Location);
             }
             else
             {
-                yield return Result.Empty<NumberListToken>(next.Location, ["digit"]);
+                token = Result.Empty<NumberListToken>(_next.Location, ["digit"]);
             }
 
-            next = SkipWhiteSpace(next.Location);
-        } while (next.HasValue);
+            _next = SkipWhiteSpace(_next.Location);
+            return true;
+        }
+
+        public void Dispose()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

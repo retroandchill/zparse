@@ -267,7 +267,7 @@ public static class Combinators
         }
 
         /// <summary>
-        /// Construct a parser that matches zero or one instance of <paramref name="parser"/>, returning <paramref name="defaultValue"/> when
+        /// Construct a parser that matches zero or one instance of <paramref name="parser"/>, returning default(T) when
         /// no match is possible.
         /// </summary>
         /// <returns>The resulting parser.</returns>

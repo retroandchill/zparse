@@ -4,73 +4,95 @@ using ZParse.Parsers;
 
 namespace ZParse.Tests.ComplexTokenScenario;
 
-internal class SExpressionXTokenizer : Tokenizer<SExpressionXToken>
+internal class SExpressionXTokenizer
+    : Tokenizer<SExpressionXToken, SExpressionXTokenizer.Enumerator>
 {
-    protected override IEnumerable<Result<SExpressionXToken>> Tokenize(TextSpan span)
+    protected override Enumerator Tokenize(TextSpan span)
     {
         var next = SkipWhiteSpace(span);
-        if (!next.HasValue)
-            yield break;
+        return new Enumerator(next);
+    }
 
-        do
+    public ref struct Enumerator : ITokenEnumerator<SExpressionXToken>
+    {
+        private Result<char> _next;
+
+        internal Enumerator(Result<char> next)
         {
-            if (next.Value == '(')
-            {
-                yield return Result.Value(
-                    new SExpressionXToken(SExpressionType.LParen),
-                    next.Location,
-                    next.Remainder
-                );
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (next.Value == ')')
-            {
-                yield return Result.Value(
-                    new SExpressionXToken(SExpressionType.RParen),
-                    next.Location,
-                    next.Remainder
-                );
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (next.Value >= '0' && next.Value <= '9')
-            {
-                var integer = Numerics.IntegerInt32(next.Location);
-                next = integer.Remainder.ConsumeChar();
+            _next = next;
+        }
 
-                yield return Result.Value(
+        public bool NextToken(out Result<SExpressionXToken> token)
+        {
+            if (!_next.HasValue)
+            {
+                token = default;
+                return false;
+            }
+
+            if (_next.Value == '(')
+            {
+                token = Result.Value(
+                    new SExpressionXToken(SExpressionType.LParen),
+                    _next.Location,
+                    _next.Remainder
+                );
+                _next = _next.Remainder.ConsumeChar();
+            }
+            else if (_next.Value == ')')
+            {
+                token = Result.Value(
+                    new SExpressionXToken(SExpressionType.RParen),
+                    _next.Location,
+                    _next.Remainder
+                );
+                _next = _next.Remainder.ConsumeChar();
+            }
+            else if (_next.Value >= '0' && _next.Value <= '9')
+            {
+                var integer = Numerics.IntegerInt32(_next.Location);
+                _next = integer.Remainder.ConsumeChar();
+
+                token = Result.Value(
                     new SExpressionXToken(integer.Value),
                     integer.Location,
                     integer.Remainder
                 );
 
                 if (
-                    next.HasValue
-                    && !char.IsPunctuation(next.Value)
-                    && !char.IsWhiteSpace(next.Value)
+                    _next.HasValue
+                    && !char.IsPunctuation(_next.Value)
+                    && !char.IsWhiteSpace(_next.Value)
                 )
                 {
-                    yield return Result.Empty<SExpressionXToken>(
-                        next.Location,
+                    token = Result.Empty<SExpressionXToken>(
+                        _next.Location,
                         ["whitespace", "punctuation"]
                     );
                 }
             }
             else
             {
-                var beginIdentifier = next.Location;
-                while (next.HasValue && char.IsLetterOrDigit(next.Value))
+                var beginIdentifier = _next.Location;
+                while (_next.HasValue && char.IsLetterOrDigit(_next.Value))
                 {
-                    next = next.Remainder.ConsumeChar();
+                    _next = _next.Remainder.ConsumeChar();
                 }
 
-                yield return Result.Value(
+                token = Result.Value(
                     new SExpressionXToken(SExpressionType.Atom),
                     beginIdentifier,
-                    next.Location
+                    _next.Location
                 );
             }
 
-            next = SkipWhiteSpace(next.Location);
-        } while (next.HasValue);
+            _next = SkipWhiteSpace(_next.Location);
+            return true;
+        }
+
+        public void Dispose()
+        {
+            // No resources to dispose of
+        }
     }
 }

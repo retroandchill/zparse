@@ -117,7 +117,7 @@ public class ErrorMessageScenarioTests
 
     [Theory, MemberData(nameof(ArithmeticExpressionTokenizers))]
     public void DroppedClosingParenthesisProducesMeaningfulError(
-        Tokenizer<ArithmeticExpressionToken> tokenizer
+        ITokenizer<ArithmeticExpressionToken> tokenizer
     )
     {
         AssertParser.FailsWithMessage(
@@ -130,7 +130,7 @@ public class ErrorMessageScenarioTests
 
     [Theory, MemberData(nameof(ArithmeticExpressionTokenizers))]
     public void MissingOperandProducesMeaningfulError(
-        Tokenizer<ArithmeticExpressionToken> tokenizer
+        ITokenizer<ArithmeticExpressionToken> tokenizer
     )
     {
         AssertParser.FailsWithMessage(
@@ -143,7 +143,7 @@ public class ErrorMessageScenarioTests
 
     [Theory, MemberData(nameof(ArithmeticExpressionTokenizers))]
     public void MissingOperatorProducesMeaningfulError(
-        Tokenizer<ArithmeticExpressionToken> tokenizer
+        ITokenizer<ArithmeticExpressionToken> tokenizer
     )
     {
         AssertParser.FailsWithMessage(

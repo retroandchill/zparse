@@ -50,9 +50,18 @@ public readonly record struct TextSlice
         Length = length;
     }
 
+    /// <summary>
+    /// Construct a slice that corresponds to the given span.
+    /// </summary>
+    /// <param name="span">The span to get the slice parameters from.</param>
     public TextSlice(TextSpan span)
         : this(span.Position, span.Length) { }
 
+    /// <summary>
+    /// Implicit conversion from a span to a slice.
+    /// </summary>
+    /// <param name="span">The span to get the slice parameters from.</param>
+    /// <returns>The constructed slice.</returns>
     public static implicit operator TextSlice(TextSpan span) => new(span);
 
     /// <summary>
@@ -65,13 +74,12 @@ public readonly record struct TextSlice
     /// </summary>
     public static TextSlice Empty { get; } = new(Position.Zero, 0);
 
+    /// <summary>
+    /// Convert the slice to a text span.
+    /// </summary>
+    /// <param name="source">The source span to construct from</param>
+    /// <returns>The constructed pan</returns>
     public TextSpan AsTextSpan(ReadOnlySpan<char> source) => new(source, Position, Length);
-
-    public void Deconstruct(out Position position, out int length)
-    {
-        position = Position;
-        length = Length;
-    }
 
     /// <inheritdoc />
     public override string ToString()

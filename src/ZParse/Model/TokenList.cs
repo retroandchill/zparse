@@ -31,6 +31,9 @@ public readonly ref struct TokenList<TKind> : IEquatable<TokenList<TKind>>
 
     private readonly Token<TKind>[]? _tokens;
 
+    /// <summary>
+    /// The source string containing the token list.
+    /// </summary>
     public ReadOnlySpan<char> Source { get; }
 
     /// <summary>
@@ -41,6 +44,7 @@ public readonly ref struct TokenList<TKind> : IEquatable<TokenList<TKind>>
     /// <summary>
     /// Construct a token list containing <paramref name="tokens"/>.
     /// </summary>
+    /// <param name="source">The source string.</param>
     /// <param name="tokens">The tokens in the list.</param>
     public TokenList(ReadOnlySpan<char> source, Token<TKind>[] tokens)
         : this(source, tokens, 0)
@@ -103,12 +107,18 @@ public readonly ref struct TokenList<TKind> : IEquatable<TokenList<TKind>>
         );
     }
 
+    /// <summary>
+    /// Get an enumerator over the tokens in the list.
+    /// </summary>
     public Enumerator GetEnumerator()
     {
         EnsureHasValue();
         return new Enumerator(this);
     }
 
+    /// <summary>
+    /// Get a value enumerable over the tokens in the list.
+    /// </summary>
     public ValueEnumerable<Enumerator, Token<TKind>> AsValueEnumerable()
     {
         return new ValueEnumerable<Enumerator, Token<TKind>>(GetEnumerator());
@@ -177,11 +187,15 @@ public readonly ref struct TokenList<TKind> : IEquatable<TokenList<TKind>>
         var lastSpan = _tokens[^1].Span(input);
         var source = lastSpan.Source;
         var position = lastSpan.Position;
-        for (var i = position.Absolute; i < source!.Length; ++i)
+        for (var i = position.Absolute; i < source.Length; ++i)
             position = position.Advance(source[i]);
         return position;
     }
 
+    /// <summary>
+    /// An enumerator over the tokens in a <see cref="TokenList{TKind}"/>.
+    /// </summary>
+    /// <param name="list">The list to enumerate over</param>
     public ref struct Enumerator(TokenList<TKind> list)
         : IEnumerator<Token<TKind>>,
             IValueEnumerator<Token<TKind>>

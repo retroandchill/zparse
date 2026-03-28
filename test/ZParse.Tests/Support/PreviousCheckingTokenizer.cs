@@ -4,24 +4,50 @@ using ZParse.Model;
 
 namespace ZParse.Tests.Support;
 
-public class PreviousCheckingTokenizer : Tokenizer<int>
+public class PreviousCheckingTokenizer : Tokenizer<int, PreviousCheckingTokenizer.Enumerator>
 {
-    protected override IEnumerable<Result<int>> Tokenize(
-        TextSpan span,
-        TokenizationState<int> state
-    )
+    protected override Enumerator Tokenize(TextSpan span, TokenizationState<int> state)
     {
-        Assert.NotNull(state);
-        Assert.Null(state.Previous);
-        var next = span.ConsumeChar();
-        yield return Result.Value(0, next.Location, next.Remainder);
+        return new Enumerator(span, state);
+    }
 
-        for (var i = 1; i < span.Length; ++i)
+    public ref struct Enumerator(TextSpan span, TokenizationState<int> state)
+        : ITokenEnumerator<int>
+    {
+        private readonly TextSpan _span = span;
+        private TextSpan _remainder = span;
+        private Result<char> _next = default;
+        private int _index = 0;
+
+        public bool NextToken(out Result<int> token)
         {
+            if (_index >= _span.Length)
+            {
+                token = default;
+                return false;
+            }
+
+            if (_index == 0)
+            {
+                Assert.NotNull(state);
+                Assert.Null(state.Previous);
+                _next = _span.ConsumeChar();
+                token = Result.Value(0, _next.Location, _next.Remainder);
+                _index++;
+                return true;
+            }
+
             Assert.NotNull(state.Previous);
-            Assert.Equal(i - 1, state.Previous!.Value.Kind);
-            next = next.Remainder.ConsumeChar();
-            yield return Result.Value(i, next.Location, next.Remainder);
+            Assert.Equal(_index - 1, state.Previous!.Value.Kind);
+            _next = _next.Remainder.ConsumeChar();
+            token = Result.Value(_index, _next.Location, _next.Remainder);
+            _index++;
+            return true;
+        }
+
+        public void Dispose()
+        {
+            // No resources to dispose of
         }
     }
 }

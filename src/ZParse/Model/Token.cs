@@ -28,10 +28,15 @@ public readonly struct Token<TKind>
     public TKind Kind { get; }
 
     /// <summary>
-    /// The string span containing the value of the token.
+    /// The string slice containing the value of the token.
     /// </summary>
     public TextSlice Slice { get; }
 
+    /// <summary>
+    /// The string span containing the value of the token.
+    /// </summary>
+    /// <param name="source">The source to get the span info from</param>
+    /// <returns>The correct span</returns>
     public TextSpan Span(ReadOnlySpan<char> source) => Slice.AsTextSpan(source);
 
     /// <summary>

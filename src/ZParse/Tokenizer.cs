@@ -19,6 +19,10 @@ using ZParse.Model;
 
 namespace ZParse;
 
+/// <summary>
+/// A tokenizer converts a string into a list of tokens.
+/// </summary>
+/// <typeparam name="TKind">The kind of tokens produced.</typeparam>
 public interface ITokenizer<TKind>
 {
     /// <summary>
@@ -39,8 +43,17 @@ public interface ITokenizer<TKind>
     Result<TokenList<TKind>> TryTokenize(ReadOnlySpan<char> source);
 }
 
+/// <summary>
+/// An enumerator that produces tokens.
+/// </summary>
+/// <typeparam name="TKind">The kind of tokens produced.</typeparam>
 public interface ITokenEnumerator<TKind> : IDisposable
 {
+    /// <summary>
+    /// Advance to the next token.
+    /// </summary>
+    /// <param name="token">The token if found or default otherwise.</param>
+    /// <returns>If a token was found.</returns>
     bool NextToken(out Result<TKind> token);
 }
 
@@ -48,6 +61,7 @@ public interface ITokenEnumerator<TKind> : IDisposable
 /// Base class for tokenizers, types whose instances convert strings into lists of tokens.
 /// </summary>
 /// <typeparam name="TKind">The kind of tokens produced.</typeparam>
+/// <typeparam name="TEnumerator">The type of enumerator used to produce tokens.</typeparam>
 public abstract class Tokenizer<TKind, TEnumerator> : ITokenizer<TKind>
     where TEnumerator : ITokenEnumerator<TKind>, allows ref struct
 {
@@ -113,12 +127,6 @@ public abstract class Tokenizer<TKind, TEnumerator> : ITokenizer<TKind>
     {
         return Tokenize(span);
     }
-
-    protected virtual void Tokenize<TContext>(
-        TextSpan span,
-        TContext context,
-        Func<TContext, Result<TKind>, bool> onToken
-    ) { }
 
     /// <summary>
     /// Advance until the first non-whitespace character is encountered.
