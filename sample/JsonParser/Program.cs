@@ -135,7 +135,7 @@ internal static class JsonTokenizer
     // in the parsing process. That's why we accept anything that looks remotely
     // like an identifier, and only check during parsing whether it's a
     // `true`, `false`, `null`, or some invalid junk.
-    public static Tokenizer<JsonToken> Instance { get; } =
+    public static ITokenizer<JsonToken> Instance { get; } =
         new TokenizerBuilder<JsonToken>()
             .Ignore(Span.WhiteSpace)
             .Match(Character.EqualTo('{'), JsonToken.LBracket)

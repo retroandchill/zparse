@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Xunit;
+using ZLinq;
 using ZParse.Parsers;
 using ZParse.Tests.SExpressionScenario;
 using ZParse.Tokenizers;
@@ -26,7 +27,7 @@ public class TokenizerBuilderTests
 
         var tokens = tokenizer.TryTokenize("abc (123 def) # this is a comment");
         Assert.True(tokens.HasValue);
-        Assert.Equal(5, tokens.Value.Count());
+        Assert.Equal(5, tokens.Value.AsValueEnumerable().Count());
     }
 
     [Fact]
@@ -40,8 +41,8 @@ public class TokenizerBuilderTests
 
         var tokens = tokenizer.TryTokenize("is isnot is notis ins not is");
         Assert.True(tokens.HasValue);
-        Assert.Equal(7, tokens.Value.Count());
-        Assert.Equal(3, tokens.Value.Count(v => v.Kind));
+        Assert.Equal(7, tokens.Value.AsValueEnumerable().Count());
+        Assert.Equal(3, tokens.Value.AsValueEnumerable().Count(v => v.Kind));
     }
 
     [Fact]

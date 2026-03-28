@@ -4,12 +4,10 @@ using ZParse.Parsers;
 
 namespace ZParse.Benchmarks.ArithmeticExpressionScenario;
 
-internal class ArithmeticExpressionTokenizer : Tokenizer<ArithmeticExpressionToken>
+internal class ArithmeticExpressionTokenizer
+    : Tokenizer<ArithmeticExpressionToken, ArithmeticExpressionTokenizer.Enumerator>
 {
-    readonly Dictionary<char, ArithmeticExpressionToken> _operators = new Dictionary<
-        char,
-        ArithmeticExpressionToken
-    >
+    private readonly Dictionary<char, ArithmeticExpressionToken> _operators = new()
     {
         ['+'] = ArithmeticExpressionToken.Plus,
         ['-'] = ArithmeticExpressionToken.Minus,
@@ -19,39 +17,68 @@ internal class ArithmeticExpressionTokenizer : Tokenizer<ArithmeticExpressionTok
         [')'] = ArithmeticExpressionToken.RParen,
     };
 
-    protected override IEnumerable<Result<ArithmeticExpressionToken>> Tokenize(TextSpan span)
+    protected override Enumerator Tokenize(TextSpan span)
     {
-        var next = SkipWhiteSpace(span);
-        if (!next.HasValue)
-            yield break;
+        return new Enumerator(SkipWhiteSpace(span), _operators);
+    }
 
-        do
+    internal ref struct Enumerator : ITokenEnumerator<ArithmeticExpressionToken>
+    {
+        private readonly Dictionary<char, ArithmeticExpressionToken> _operators;
+        private Result<char> _next;
+
+        internal Enumerator(
+            Result<char> next,
+            Dictionary<char, ArithmeticExpressionToken> operators
+        )
         {
-            var ch = next.Value;
+            _next = next;
+            _operators = operators;
+        }
+
+        public bool NextToken(out Result<ArithmeticExpressionToken> token)
+        {
+            if (!_next.HasValue)
+            {
+                token = default;
+                return false;
+            }
+
+            bool found;
+            var ch = _next.Value;
             if (ch is >= '0' and <= '9')
             {
-                var integer = Numerics.Integer(next.Location);
-                next = integer.Remainder.ConsumeChar();
-                yield return Result.Value(
+                var integer = Numerics.Integer(_next.Location);
+                _next = integer.Remainder.ConsumeChar();
+                token = Result.Value(
                     ArithmeticExpressionToken.Number,
                     integer.Location,
                     integer.Remainder
                 );
+                found = true;
             }
             else if (_operators.TryGetValue(ch, out var charToken))
             {
-                yield return Result.Value(charToken, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
+                token = Result.Value(charToken, _next.Location, _next.Remainder);
+                _next = _next.Remainder.ConsumeChar();
+                found = true;
             }
             else
             {
-                yield return Result.Empty<ArithmeticExpressionToken>(
-                    next.Location,
+                token = Result.Empty<ArithmeticExpressionToken>(
+                    _next.Location,
                     ["number", "operator"]
                 );
+                found = false;
             }
 
-            next = SkipWhiteSpace(next.Location);
-        } while (next.HasValue);
+            _next = SkipWhiteSpace(_next.Location);
+            return found;
+        }
+
+        public void Dispose()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

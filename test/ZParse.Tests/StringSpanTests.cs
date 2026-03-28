@@ -9,8 +9,11 @@ public class StringSpanTests
     [Fact]
     public void ADefaultSpanHasNoValue()
     {
-        var span = default(TextSpan);
-        Assert.Throws<InvalidOperationException>(() => span.ToStringValue());
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            var span = default(TextSpan);
+            return span.ToStringValue();
+        });
     }
 
     [Fact]
@@ -19,7 +22,7 @@ public class StringSpanTests
         const string source = "123";
         var t1 = new TextSpan(source, Position.Zero, 1);
         var t2 = new TextSpan(source, Position.Zero, 1);
-        Assert.Equal(t1, t2);
+        Assert.True(t1 == t2);
     }
 
     [Fact]
@@ -29,7 +32,7 @@ public class StringSpanTests
         var source2 = "1234"[..3];
         var t1 = new TextSpan(source1, Position.Zero, 1);
         var t2 = new TextSpan(source2, Position.Zero, 1);
-        Assert.NotEqual(t1, t2);
+        Assert.True(t1 != t2);
     }
 
     [Fact]
@@ -38,7 +41,7 @@ public class StringSpanTests
         const string source = "123";
         var t1 = new TextSpan(source, Position.Zero, 1);
         var t2 = new TextSpan(source, Position.Zero, 2);
-        Assert.NotEqual(t1, t2);
+        Assert.True(t1 != t2);
     }
 
     [Fact]
@@ -57,7 +60,7 @@ public class StringSpanTests
         const string source = "111";
         var t1 = new TextSpan(source, Position.Zero, 1);
         var t2 = new TextSpan(source, new Position(1, 1, 1), 1);
-        Assert.NotEqual(t1, t2);
+        Assert.True(t1 != t2);
     }
 
     [Theory]

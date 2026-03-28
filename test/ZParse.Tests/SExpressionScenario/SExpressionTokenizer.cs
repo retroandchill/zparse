@@ -1,14 +1,14 @@
-using ZParse.Parsers;
-using ZParse.Model;
 using System.Collections.Generic;
+using ZParse.Model;
+using ZParse.Parsers;
 
 namespace ZParse.Tests.SExpressionScenario;
 
 internal class SExpressionTokenizer : Tokenizer<SExpressionToken>
 {
-    protected override IEnumerable<Result<SExpressionToken>> Tokenize(TextSpan span)
+    protected override IEnumerable<Result<SExpressionToken>> Tokenize(TextMemory memory)
     {
-        var next = SkipWhiteSpace(span);
+        var next = SkipWhiteSpace(memory);
         if (!next.HasValue)
             yield break;
 
@@ -29,11 +29,22 @@ internal class SExpressionTokenizer : Tokenizer<SExpressionToken>
                 var integer = Numerics.Integer(next.Location);
                 next = integer.Remainder.ConsumeChar();
 
-                yield return Result.Value(SExpressionToken.Number, integer.Location, integer.Remainder);
+                yield return Result.Value(
+                    SExpressionToken.Number,
+                    integer.Location,
+                    integer.Remainder
+                );
 
-                if (next.HasValue && !char.IsPunctuation(next.Value) && !char.IsWhiteSpace(next.Value))
+                if (
+                    next.HasValue
+                    && !char.IsPunctuation(next.Value)
+                    && !char.IsWhiteSpace(next.Value)
+                )
                 {
-                    yield return Result.Empty<SExpressionToken>(next.Location, ["whitespace", "punctuation"]);
+                    yield return Result.Empty<SExpressionToken>(
+                        next.Location,
+                        ["whitespace", "punctuation"]
+                    );
                 }
             }
             else

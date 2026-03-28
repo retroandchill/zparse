@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Xunit;
+using ZLinq;
 using ZParse.Tests.NumberListScenario;
 using ZParse.Tests.Support;
 
@@ -45,7 +46,7 @@ public class TokenizerTests
     {
         var tokenizer = new NumberListTokenizer();
         var result = tokenizer.Tokenize("1 23 456");
-        Assert.Equal(3, result.Count());
+        Assert.Equal(3, result.AsValueEnumerable().Count());
     }
 
     [Fact]
@@ -54,6 +55,6 @@ public class TokenizerTests
         var tokenizer = new PreviousCheckingTokenizer();
         var input = new string('_', 6);
         var result = tokenizer.Tokenize(input);
-        Assert.Equal(input.Length, result.Count());
+        Assert.Equal(input.Length, result.AsValueEnumerable().Count());
     }
 }

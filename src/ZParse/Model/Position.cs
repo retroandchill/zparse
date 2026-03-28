@@ -13,13 +13,14 @@
 // limitations under the License.
 
 using System;
+using System.Numerics;
 
 namespace ZParse.Model;
 
 /// <summary>
 /// A position within a stream of character input.
 /// </summary>
-public readonly struct Position
+public readonly struct Position : IEquatable<Position>, IEqualityOperators<Position, Position, bool>
 {
     /// <summary>
     /// The zero-based absolute index of the position.
@@ -89,5 +90,35 @@ public readonly struct Position
     public override string ToString()
     {
         return $"{Absolute} (line {Line}, column {Column})";
+    }
+
+    /// <inheritdoc />
+    public bool Equals(Position other)
+    {
+        return Absolute == other.Absolute && Line == other.Line && Column == other.Column;
+    }
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+    {
+        return obj is Position other && Equals(other);
+    }
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Absolute, Line, Column);
+    }
+
+    /// <inheritdoc />
+    public static bool operator ==(Position left, Position right)
+    {
+        return left.Equals(right);
+    }
+
+    /// <inheritdoc />
+    public static bool operator !=(Position left, Position right)
+    {
+        return !(left == right);
     }
 }

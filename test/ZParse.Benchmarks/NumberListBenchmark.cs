@@ -15,7 +15,7 @@ public class NumberListBenchmark
     private const int NumbersLength = 1000;
     private static readonly string Numbers = string.Join(" ", Enumerable.Range(0, NumbersLength));
     private static readonly Input SpracheInput = new(Numbers);
-    private static readonly TextSpan SuperpowerTextSpan = new(Numbers);
+    private static TextSpan SuperpowerTextSpan => new(Numbers);
 
     private static void AssertComplete(int[] numbers)
     {
@@ -65,7 +65,7 @@ public class NumberListBenchmark
     }
 
     private static readonly TextParser<int[]> SuperpowerTextParser = Span
-        .WhiteSpace.Optional()
+        .WhiteSpace.OptionalOrDefault()
         .IgnoreThen(Numerics.IntegerInt32)
         .Many()
         .AtEnd();

@@ -30,7 +30,7 @@ namespace ZParse.Tokenizers;
 /// produce.</typeparam>
 public class TokenizerBuilder<TKind>
 {
-    private readonly record struct Recognizer(
+    internal readonly record struct Recognizer(
         TextParser<Unit> Parser,
         bool IsIgnored,
         TKind Kind,
@@ -57,6 +57,7 @@ public class TokenizerBuilder<TKind>
         TKind kind,
         bool requireDelimiters = false
     )
+        where T : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(recognizer);
         _recognizers.Add(
@@ -73,6 +74,7 @@ public class TokenizerBuilder<TKind>
     /// will be ignored.</typeparam>
     /// <returns>The builder, to allow method chaining.</returns>
     public TokenizerBuilder<TKind> Ignore<T>(TextParser<T> ignored)
+        where T : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(ignored);
         _recognizers.Add(new Recognizer(ignored.Value(Unit.Value), true, default!, true));
@@ -83,12 +85,12 @@ public class TokenizerBuilder<TKind>
     /// Build the tokenizer.
     /// </summary>
     /// <returns>The tokenizer.</returns>
-    public Tokenizer<TKind> Build()
+    public ITokenizer<TKind> Build()
     {
         return new SimpleLinearTokenizer(_recognizers);
     }
 
-    private class SimpleLinearTokenizer : Tokenizer<TKind>
+    private class SimpleLinearTokenizer : Tokenizer<TKind, TokenEnumerator>
     {
         private readonly ImmutableArray<Recognizer> _recognizers;
 
@@ -106,55 +108,78 @@ public class TokenizerBuilder<TKind>
         /// by a delimiter or end-of-input. If not, the match is discarded and subsequent recognizers
         /// are tested.
         /// </remarks>
-        protected override IEnumerable<Result<TKind>> Tokenize(TextSpan span)
+        protected override TokenEnumerator Tokenize(TextSpan span)
         {
-            var remainder = span;
-            var current = default(Result<TKind>);
-            var recognizerSearchStart = 0;
-            var recognizerIndex = -1;
-            var hasCurrent = false;
+            return new TokenEnumerator(_recognizers, span);
+        }
+    }
 
+    private ref struct TokenEnumerator : ITokenEnumerator<TKind>
+    {
+        private TextSpan _remainder;
+        private Result<TKind> _current;
+        private int _recognizerSearchStart;
+        private int _recognizerIndex;
+        private bool _hasCurrent;
+        private readonly ImmutableArray<Recognizer> _recognizers;
+
+        internal TokenEnumerator(ImmutableArray<Recognizer> recognizers, TextSpan span)
+        {
+            _recognizers = recognizers;
+            _remainder = span;
+            _current = default;
+            _recognizerSearchStart = 0;
+            _recognizerIndex = -1;
+            _hasCurrent = false;
+        }
+
+        public bool NextToken(out Result<TKind> token)
+        {
             while (
-                hasCurrent
-                || TryMatch(remainder, recognizerSearchStart, out current, out recognizerIndex)
+                _hasCurrent
+                || TryMatch(_remainder, _recognizerSearchStart, out _current, out _recognizerIndex)
             )
             {
-                var recognizer = _recognizers[recognizerIndex];
+                var recognizer = _recognizers[_recognizerIndex];
                 if (recognizer.IsIgnored)
                 {
-                    remainder = current.Remainder;
-                    hasCurrent = false;
-                    current = default;
-                    recognizerSearchStart = 0;
-                    recognizerIndex = -1;
+                    _remainder = _current.Remainder;
+                    _hasCurrent = false;
+                    _current = default;
+                    _recognizerSearchStart = 0;
+                    _recognizerIndex = -1;
                 }
-                else if (recognizer.IsDelimiter || current.Remainder.IsAtEnd)
+                else if (recognizer.IsDelimiter || _current.Remainder.IsAtEnd)
                 {
-                    yield return current;
-                    remainder = current.Remainder;
-                    hasCurrent = false;
-                    current = default;
-                    recognizerSearchStart = 0;
-                    recognizerIndex = -1;
+                    token = _current;
+
+                    _remainder = _current.Remainder;
+                    _hasCurrent = false;
+                    _current = default;
+                    _recognizerSearchStart = 0;
+                    _recognizerIndex = -1;
+                    return true;
                 }
                 else if (
-                    TryMatch(current.Remainder, 0, out var next, out var nextRecognizerIndex)
+                    TryMatch(_current.Remainder, 0, out var next, out var nextRecognizerIndex)
                     && _recognizers[nextRecognizerIndex].IsDelimiter
                 )
                 {
-                    yield return current;
-                    hasCurrent = true;
-                    current = next;
-                    remainder = current.Remainder;
-                    recognizerSearchStart = 0;
-                    recognizerIndex = nextRecognizerIndex;
+                    token = _current;
+
+                    _hasCurrent = true;
+                    _current = next;
+                    _remainder = _current.Remainder;
+                    _recognizerSearchStart = 0;
+                    _recognizerIndex = nextRecognizerIndex;
+                    return true;
                 }
-                else if (recognizerIndex < _recognizers.Length - 1)
+                else if (_recognizerIndex < _recognizers.Length - 1)
                 {
-                    hasCurrent = false;
-                    current = default;
-                    recognizerSearchStart = recognizerIndex + 1;
-                    recognizerIndex = -1;
+                    _hasCurrent = false;
+                    _current = default;
+                    _recognizerSearchStart = _recognizerIndex + 1;
+                    _recognizerIndex = -1;
                 }
                 else
                 {
@@ -162,43 +187,46 @@ public class TokenizerBuilder<TKind>
                 }
             }
 
-            if (remainder.IsAtEnd)
-                yield break;
+            if (_remainder.IsAtEnd)
+            {
+                token = default;
+                return false;
+            }
 
             // Even though this re-runs all of the recognizers, it's better for performance
             // to calculate the error here, than do all of the extra work in the hot/success path.
-            var failure = Result.Empty<TKind>(remainder);
+            var failure = Result.Empty<TKind>(_remainder);
             foreach (var recognizer in _recognizers)
             {
-                var attempt = recognizer.Parser(remainder);
+                var attempt = recognizer.Parser(_remainder);
                 if (
-                    !attempt.HasValue
-                    && // <- Successful recognizers rejected because delimiters were not present
-                    attempt.ErrorPosition.Absolute > failure.ErrorPosition.Absolute
+                    attempt.HasValue
+                    // <- Successful recognizers rejected because delimiters were not present
+                    || attempt.ErrorPosition.Absolute <= failure.ErrorPosition.Absolute
                 )
-                {
-                    // We know the token's kind here, so might as well included it so that we can yield more
-                    // detailed messages. Reporting the failure position as the token's start position makes it
-                    // much more sensible to refer to the token by kind, and easier to figure out what's going on
-                    // in cases like missing closing delimiters (which end pulling the whole remainder into the
-                    // token). Including the actual failure position in the error message helps to further pinpoint
-                    // the problem.
-                    var problem = attempt.Remainder.IsAtEnd ? "incomplete" : "invalid";
-                    var augmentedMessage =
-                        $"{problem} {Presentation.FormatExpectation(recognizer.Kind)}, {attempt.FormatErrorMessageFragment()}";
-                    if (!attempt.Remainder.IsAtEnd)
-                        augmentedMessage +=
-                            $" at line {attempt.Remainder.Position.Line}, column {attempt.Remainder.Position.Column}";
-                    failure = new Result<TKind>(
-                        remainder,
-                        augmentedMessage,
-                        attempt.Expectations,
-                        attempt.Backtrack
-                    );
-                }
+                    continue;
+                // We know the token's kind here, so might as well included it so that we can yield more
+                // detailed messages. Reporting the failure position as the token's start position makes it
+                // much more sensible to refer to the token by kind, and easier to figure out what's going on
+                // in cases like missing closing delimiters (which end pulling the whole remainder into the
+                // token). Including the actual failure position in the error message helps to further pinpoint
+                // the problem.
+                var problem = attempt.Remainder.IsAtEnd ? "incomplete" : "invalid";
+                var augmentedMessage =
+                    $"{problem} {Presentation.FormatExpectation(recognizer.Kind)}, {attempt.FormatErrorMessageFragment()}";
+                if (!attempt.Remainder.IsAtEnd)
+                    augmentedMessage +=
+                        $" at line {attempt.Remainder.Position.Line}, column {attempt.Remainder.Position.Column}";
+                failure = new Result<TKind>(
+                    _remainder,
+                    augmentedMessage,
+                    attempt.Expectations,
+                    attempt.Backtrack
+                );
             }
 
-            yield return failure;
+            token = failure;
+            return true;
         }
 
         private bool TryMatch(
@@ -234,6 +262,11 @@ public class TokenizerBuilder<TKind>
             match = default;
             recognizerIndex = -1;
             return false;
+        }
+
+        public void Dispose()
+        {
+            // No resources to dispose of
         }
     }
 }

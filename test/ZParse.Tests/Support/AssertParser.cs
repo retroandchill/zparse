@@ -54,11 +54,13 @@ internal static class AssertParser
     }
 
     public static void Fails<T>(TextParser<T> parser, string input)
+        where T : allows ref struct
     {
         FailsWith(parser, input, _ => { });
     }
 
     public static void FailsAt<T>(TextParser<T> parser, string input, int position)
+        where T : allows ref struct
     {
         FailsWith(parser, input, f => Assert.Equal(position, f.Remainder.Position.Absolute));
     }
@@ -68,11 +70,18 @@ internal static class AssertParser
         string input,
         Action<Result<T>> resultAssertion
     )
+        where T : allows ref struct
     {
         var result = parser.TryParse(input);
 
         if (result.HasValue)
-            Assert.False(result.HasValue, $"Expected failure but succeeded with {result.Value}.");
+        {
+            var asString = Result<T>.Stringify?.Invoke(result.Value);
+            var userMessage = asString is not null
+                ? $"Expected failure but succeeded with {asString}."
+                : $"Expected failure but succeeded.";
+            Assert.False(result.HasValue, userMessage);
+        }
 
         resultAssertion(result);
     }
@@ -191,9 +200,10 @@ internal static class AssertParser
     public static void FailsWithMessage<TKind, T>(
         TokenListParser<TKind, T> parser,
         string input,
-        Tokenizer<TKind> tokenizer,
+        ITokenizer<TKind> tokenizer,
         string message
     )
+        where T : allows ref struct
     {
         var result = parser.TryParse(tokenizer.Tokenize(input));
         Assert.Equal(message, result.ToString());

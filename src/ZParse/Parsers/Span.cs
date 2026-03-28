@@ -232,7 +232,7 @@ public static class Span
 
         return i =>
         {
-            var m = re.Match(i.Source!, i.Position.Absolute, i.Length);
+            var m = re.Match(i.AsReadOnlySpan().ToString());
             if (!m.Success || m.Length == 0)
                 return Result.Empty<TextSpan>(i, expectations);
 
@@ -249,6 +249,7 @@ public static class Span
     /// <typeparam name="T">The parser's (ignored) result type.</typeparam>
     /// <returns>A parser that will match the span covered by <paramref name="parser"/>.</returns>
     public static TextParser<TextSpan> MatchedBy<T>(TextParser<T> parser)
+        where T : allows ref struct
     {
         return i =>
         {
@@ -289,7 +290,7 @@ public static class Span
 
         return input =>
         {
-            var matchIndex = input.Source!.IndexOf(text, input.Position.Absolute, comparison);
+            var matchIndex = input.Source[input.Position.Absolute..].IndexOf(text, comparison);
             if (input.Length == 0 || matchIndex == input.Position.Absolute)
                 return Result.Empty<TextSpan>(input, expectations);
 

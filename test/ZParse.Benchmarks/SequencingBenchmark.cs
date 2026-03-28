@@ -11,8 +11,8 @@ namespace ZParse.Benchmarks;
 [MemoryDiagnoser]
 public class SequencingBenchmark
 {
-    private static readonly string Numbers = "123";
-    private static readonly TextSpan Input = new(Numbers);
+    private const string Numbers = "123";
+    private static TextSpan Input => new(Numbers);
 
     private static void AssertValues((char First, char Second, char Third) numbers)
     {
@@ -25,7 +25,9 @@ public class SequencingBenchmark
     public void Verify()
     {
         AssertValues(ApplyThen().Value);
-        AssertValues(ApplySequence().Value);
+
+        var (c1, c2, c3) = ApplySequence().Value;
+        AssertValues((c1, c2, c3));
     }
 
     [Fact]
@@ -47,12 +49,12 @@ public class SequencingBenchmark
         return ThenParser(Input);
     }
 
-    private static readonly TextParser<(char, char, char)> SequenceParser = Parse
+    private static readonly TextParser<RefTuple<char, char, char>> SequenceParser = Parse
         .Sequence(Character.Digit, Character.Digit, Character.Digit)
         .Select(t => t); // Even up the work done
 
     [Benchmark]
-    public static Result<(char, char, char)> ApplySequence()
+    public static Result<RefTuple<char, char, char>> ApplySequence()
     {
         return SequenceParser(Input);
     }

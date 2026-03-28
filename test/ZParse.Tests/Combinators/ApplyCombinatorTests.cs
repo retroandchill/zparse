@@ -68,7 +68,7 @@ public class ApplyCombinatorTests
     {
         var input = new TextSpan("aa");
         var twodigits = Span.EqualTo("aa")
-            .Apply(Character.Digit.Value(TextSpan.Empty))
+            .Apply(Character.Digit.Select(_ => TextSpan.Empty))
             .Or(Span.EqualTo("bb"));
         var result = twodigits(input);
         Assert.False(result.HasValue);
@@ -85,7 +85,7 @@ public class ApplyCombinatorTests
         var just42 = Token
             .EqualTo('a')
             .Apply(Span.EqualTo("ab"))
-            .Or(Token.EqualTo('x').Value(TextSpan.Empty));
+            .Or(Token.EqualTo('x').Select(_ => TextSpan.Empty));
         var result = just42(input);
         Assert.False(result.HasValue);
         // The "invalid a" here is the token name, since we're using characters as tokens - in normal use
@@ -103,7 +103,7 @@ public class ApplyCombinatorTests
         var just42 = Token
             .EqualTo('a')
             .Apply(Span.EqualTo("b"))
-            .Or(Token.EqualTo('x').Value(TextSpan.Empty));
+            .Or(Token.EqualTo('x').Select(_ => TextSpan.Empty));
         var result = just42(input);
         Assert.False(result.HasValue);
         // The "invalid a" here is the token name, since we're using characters as tokens - in normal use

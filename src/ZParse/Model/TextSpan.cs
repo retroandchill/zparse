@@ -13,18 +13,25 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using ZLinq;
+using ZLinq.Internal;
 
 namespace ZParse.Model;
 
 /// <summary>
 /// A span of text within a larger string.
 /// </summary>
-public readonly struct TextSpan : IEquatable<TextSpan>
+public readonly ref struct TextSpan : IEquatable<TextSpan>
 {
+    private const string CannotBeBoxed =
+        $"{nameof(TextSpan)} is a ref struct, and thus cannot be boxed.";
+
     /// <summary>
     /// The source string containing the span.
     /// </summary>
-    public string? Source { get; }
+    public ReadOnlySpan<char> Source { get; }
 
     /// <summary>
     /// The position of the start of the span within the string.
@@ -40,7 +47,7 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     /// Construct a span encompassing an entire string.
     /// </summary>
     /// <param name="source">The source string.</param>
-    public TextSpan(string source)
+    public TextSpan(ReadOnlySpan<char> source)
         : this(source, Position.Zero, source.Length) { }
 
     /// <summary>
@@ -49,10 +56,9 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     /// <param name="source">The source string.</param>
     /// <param name="position">The start of the span.</param>
     /// <param name="length">The length of the span.</param>
-    public TextSpan(string source, Position position, int length)
+    public TextSpan(ReadOnlySpan<char> source, Position position, int length)
     {
 #if CHECKED
-        ArgumentNullException.ThrowIfNull(source);
         if (length < 0)
             throw new ArgumentOutOfRangeException(
                 nameof(length),
@@ -78,7 +84,7 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     /// <summary>
     /// A span corresponding to the empty string.
     /// </summary>
-    public static TextSpan Empty { get; } = new(string.Empty, Position.Zero, 0);
+    public static TextSpan Empty => new([], Position.Zero, 0);
 
     /// <summary>
     /// True if the span has no content.
@@ -92,9 +98,11 @@ public readonly struct TextSpan : IEquatable<TextSpan>
         }
     }
 
+    private bool IsValid => Position != Position.Empty;
+
     private void EnsureHasValue()
     {
-        if (Source is null)
+        if (!IsValid)
             throw new InvalidOperationException("String span has no value.");
     }
 
@@ -113,19 +121,26 @@ public readonly struct TextSpan : IEquatable<TextSpan>
         return Result.Value(ch, this, new TextSpan(Source, Position.Advance(ch), Length - 1));
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// This method is not supported as views cannot be boxed. To compare two views, use operator==.
+    /// </summary>
+    /// <exception cref="NotSupportedException">
+    /// Always thrown by this method.
+    /// </exception>
     public override bool Equals(object? obj)
     {
-        return obj is TextSpan other && Equals(other);
+        throw new NotSupportedException(CannotBeBoxed);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// This method is not supported as views cannot be boxed. To compare two views, use operator==.
+    /// </summary>
+    /// <exception cref="NotSupportedException">
+    /// Always thrown by this method.
+    /// </exception>
     public override int GetHashCode()
     {
-        unchecked
-        {
-            return ((Source?.GetHashCode() ?? 0) * 397) ^ Position.Absolute;
-        }
+        throw new NotSupportedException(CannotBeBoxed);
     }
 
     /// <summary>
@@ -136,7 +151,7 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     /// <returns>True if the spans are the same.</returns>
     public bool Equals(TextSpan other)
     {
-        return ReferenceEquals(Source, other.Source)
+        return Source == other.Source
             && Position.Absolute == other.Position.Absolute
             && Length == other.Length;
     }
@@ -195,7 +210,7 @@ public readonly struct TextSpan : IEquatable<TextSpan>
             );
 #endif
 
-        return new TextSpan(Source!, Position, length);
+        return new TextSpan(Source, Position, length);
     }
 
     /// <summary>
@@ -217,16 +232,16 @@ public readonly struct TextSpan : IEquatable<TextSpan>
         var p = Position;
         for (var i = 0; i < count; ++i)
         {
-            p = p.Advance(Source![p.Absolute]);
+            p = p.Advance(Source[p.Absolute]);
         }
 
-        return new TextSpan(Source!, p, Length - count);
+        return new TextSpan(Source, p, Length - count);
     }
 
     /// <inheritdoc/>
     public override string ToString()
     {
-        return Source is not null ? ToStringValue() : "(empty source span)";
+        return IsValid ? ToStringValue() : "(empty source span)";
     }
 
     /// <summary>
@@ -236,7 +251,7 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     public string ToStringValue()
     {
         EnsureHasValue();
-        return Source!.Substring(Position.Absolute, Length);
+        return AsReadOnlySpan().ToString();
     }
 
     /// <summary>
@@ -246,7 +261,7 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     public ReadOnlySpan<char> AsReadOnlySpan()
     {
         EnsureHasValue();
-        return Source!.AsSpan(Position.Absolute, Length);
+        return Source.Slice(Position.Absolute, Length);
     }
 
     /// <summary>
@@ -254,18 +269,10 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     /// </summary>
     /// <param name="otherValue">The string value to compare.</param>
     /// <returns>True if the values are the same.</returns>
-    public bool EqualsValue(string otherValue)
+    public bool EqualsValue(ReadOnlySpan<char> otherValue)
     {
-        ArgumentNullException.ThrowIfNull(otherValue);
         EnsureHasValue();
-        if (Length != otherValue.Length)
-            return false;
-        for (var i = 0; i < Length; ++i)
-        {
-            if (Source![Position.Absolute + i] != otherValue[i])
-                return false;
-        }
-        return true;
+        return AsReadOnlySpan().Equals(otherValue, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -273,21 +280,10 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     /// </summary>
     /// <param name="otherValue">The string value to compare.</param>
     /// <returns>True if the values are the same ignoring case.</returns>
-    public bool EqualsValueIgnoreCase(string otherValue)
+    public bool EqualsValueIgnoreCase(ReadOnlySpan<char> otherValue)
     {
-        ArgumentNullException.ThrowIfNull(otherValue);
         EnsureHasValue();
-        if (Length != otherValue.Length)
-            return false;
-        for (var i = 0; i < Length; ++i)
-        {
-            if (
-                char.ToUpperInvariant(Source![Position.Absolute + i])
-                != char.ToUpperInvariant(otherValue[i])
-            )
-                return false;
-        }
-        return true;
+        return AsReadOnlySpan().Equals(otherValue, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -313,7 +309,7 @@ public readonly struct TextSpan : IEquatable<TextSpan>
                     "Index exceeds the source span's length."
                 );
 #endif
-            return Source![Position.Absolute + index];
+            return Source[Position.Absolute + index];
         }
     }
 
@@ -340,5 +336,105 @@ public readonly struct TextSpan : IEquatable<TextSpan>
     public TextSpan Slice(int index, int count)
     {
         return Skip(index).First(count);
+    }
+
+    /// <summary>
+    /// Get an enumerator for the view.
+    /// </summary>
+    /// <returns>An enumerator to iterate over the view</returns>
+    public Enumerator GetEnumerator()
+    {
+        return new Enumerator(this);
+    }
+
+    /// <summary>
+    /// Gets a ZLinq compatible value enumerable for the view.
+    /// </summary>
+    /// <returns>The value enumerable for the view.</returns>
+    public ValueEnumerable<Enumerator, char> AsValueEnumerable()
+    {
+        return new ValueEnumerable<Enumerator, char>(GetEnumerator());
+    }
+
+    /// <summary>
+    /// Enumerator for <see cref="TextSpan"/>.
+    /// </summary>
+    /// <param name="owner">The view to enumerate.</param>
+    public ref struct Enumerator(TextSpan owner) : IEnumerator<char>, IValueEnumerator<char>
+    {
+        private readonly TextSpan _owner = owner;
+
+        private int _index;
+
+        object IEnumerator.Current => Current;
+
+        /// <inheritdoc />
+        public char Current => _owner[_index];
+
+        /// <inheritdoc />
+        public bool MoveNext()
+        {
+            if (_index >= _owner.Length)
+                return false;
+
+            _index++;
+            return _index < _owner.Length;
+        }
+
+        /// <inheritdoc />
+        public bool TryGetNext(out char current)
+        {
+            if (MoveNext())
+            {
+                current = Current;
+                return true;
+            }
+
+            current = '\0';
+            return false;
+        }
+
+        /// <inheritdoc />
+        public bool TryGetNonEnumeratedCount(out int count)
+        {
+            count = _owner.Length;
+            return true;
+        }
+
+        /// <inheritdoc />
+        public bool TryGetSpan(out ReadOnlySpan<char> span)
+        {
+            span = _owner.AsReadOnlySpan();
+            return true;
+        }
+
+        /// <inheritdoc />
+        public bool TryCopyTo(scoped Span<char> destination, Index offset)
+        {
+            if (
+                !EnumeratorHelper.TryGetSlice(
+                    _owner.AsReadOnlySpan(),
+                    offset,
+                    destination.Length,
+                    out var slice
+                )
+            )
+                return false;
+
+            slice.CopyTo(destination);
+            return true;
+        }
+
+        /// <inheritdoc />
+        public void Reset()
+        {
+            _index = -1;
+        }
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            // No resources to dispose of
+        }
     }
 }

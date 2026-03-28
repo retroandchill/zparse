@@ -19,11 +19,7 @@ using ZParse.Model;
 
 namespace ZParse;
 
-/// <summary>
-/// Base class for tokenizers, types whose instances convert strings into lists of tokens.
-/// </summary>
-/// <typeparam name="TKind">The kind of tokens produced.</typeparam>
-public abstract class Tokenizer<TKind>
+public interface ITokenizer<TKind>
 {
     /// <summary>
     /// Tokenize <paramref name="source"/>.
@@ -31,13 +27,7 @@ public abstract class Tokenizer<TKind>
     /// <param name="source">The source to tokenize.</param>
     /// <returns>The list of tokens or an error.</returns>
     /// <exception cref="ParseException">Tokenization failed.</exception>
-    public TokenList<TKind> Tokenize(string source)
-    {
-        var result = TryTokenize(source);
-        return result.HasValue
-            ? result.Value
-            : throw new ParseException(result.ToString(), result.ErrorPosition);
-    }
+    TokenList<TKind> Tokenize(ReadOnlySpan<char> source);
 
     /// <summary>
     /// Tokenize <paramref name="source"/>.
@@ -46,16 +36,40 @@ public abstract class Tokenizer<TKind>
     /// <returns>A result with the list of tokens or an error.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is null.</exception>
     /// <exception cref="ParseException">The tokenizer could not correctly perform tokenization.</exception>
-    public Result<TokenList<TKind>> TryTokenize(string source)
-    {
-        ArgumentNullException.ThrowIfNull(source);
+    Result<TokenList<TKind>> TryTokenize(ReadOnlySpan<char> source);
+}
 
+public interface ITokenEnumerator<TKind> : IDisposable
+{
+    bool NextToken(out Result<TKind> token);
+}
+
+/// <summary>
+/// Base class for tokenizers, types whose instances convert strings into lists of tokens.
+/// </summary>
+/// <typeparam name="TKind">The kind of tokens produced.</typeparam>
+public abstract class Tokenizer<TKind, TEnumerator> : ITokenizer<TKind>
+    where TEnumerator : ITokenEnumerator<TKind>, allows ref struct
+{
+    /// <inheritdoc />
+    public TokenList<TKind> Tokenize(ReadOnlySpan<char> source)
+    {
+        var result = TryTokenize(source);
+        return result.HasValue
+            ? result.Value
+            : throw new ParseException(result.ToString(), result.ErrorPosition);
+    }
+
+    /// <inheritdoc />
+    public Result<TokenList<TKind>> TryTokenize(ReadOnlySpan<char> source)
+    {
         var state = new TokenizationState<TKind>();
 
         var sourceSpan = new TextSpan(source);
         var remainder = sourceSpan;
         var results = new List<Token<TKind>>();
-        foreach (var result in Tokenize(sourceSpan, state))
+        using var enumerator = Tokenize(sourceSpan, state);
+        while (enumerator.NextToken(out var result))
         {
             if (!result.HasValue)
                 return Result.CastEmpty<TKind, TokenList<TKind>>(result);
@@ -72,7 +86,7 @@ public abstract class Tokenizer<TKind>
             results.Add(token);
         }
 
-        var value = new TokenList<TKind>(results.ToArray());
+        var value = new TokenList<TKind>(source, results.ToArray());
         return Result.Value(value, sourceSpan, remainder);
     }
 
@@ -81,7 +95,7 @@ public abstract class Tokenizer<TKind>
     /// </summary>
     /// <param name="span">The input span to tokenize.</param>
     /// <returns>A list of parsed tokens.</returns>
-    protected virtual IEnumerable<Result<TKind>> Tokenize(TextSpan span)
+    protected virtual TEnumerator Tokenize(TextSpan span)
     {
         throw new NotImplementedException(
             "Either `Tokenize(TextSpan)` or `Tokenize(TextSpan, TokenizationState)` must be implemented."
@@ -95,13 +109,16 @@ public abstract class Tokenizer<TKind>
     /// <param name="span">The input span to tokenize.</param>
     /// <param name="state">The tokenization state maintained during the operation.</param>
     /// <returns>A list of parsed tokens.</returns>
-    protected virtual IEnumerable<Result<TKind>> Tokenize(
-        TextSpan span,
-        TokenizationState<TKind> state
-    )
+    protected virtual TEnumerator Tokenize(TextSpan span, TokenizationState<TKind> state)
     {
         return Tokenize(span);
     }
+
+    protected virtual void Tokenize<TContext>(
+        TextSpan span,
+        TContext context,
+        Func<TContext, Result<TKind>, bool> onToken
+    ) { }
 
     /// <summary>
     /// Advance until the first non-whitespace character is encountered.

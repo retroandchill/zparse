@@ -211,16 +211,8 @@ public static class Numerics
     /// Matches decimal numbers, for example <code>-1.23</code>.
     /// </summary>
     public static TextParser<TextSpan> Decimal { get; } =
-        Integer.Then(n =>
-            Character
-                .EqualTo('.')
-                .IgnoreThen(Natural)
-                .OptionalOrDefault()
-                .Select(f =>
-                    f == TextSpan.None
-                        ? n
-                        : new TextSpan(n.Source!, n.Position, n.Length + f.Length + 1)
-                )
+        Span.MatchedBy(
+            Parse.Sequence(Integer, Character.EqualTo('.').IgnoreThen(Natural).OptionalOrDefault())
         );
 
     /// <summary>

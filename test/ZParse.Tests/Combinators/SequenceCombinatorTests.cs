@@ -61,7 +61,7 @@ public class SequenceCombinatorTests
         // Keeping this instance as an example, but using the "cleaner" .Item1, .Item2 syntax below.
         var p = Parse
             .Sequence(Token.EqualTo('1'), Token.EqualTo('w'))
-            .Select(((Token<char> a, Token<char> b) t) => new[] { t.a, t.b });
+            .Select((t) => new[] { t.Item1, t.Item2 });
 
         AssertParser.SucceedsWithAll(p, "1w");
     }

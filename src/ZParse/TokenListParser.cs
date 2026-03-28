@@ -23,4 +23,5 @@ namespace ZParse;
 /// <typeparam name="TKind">The type of tokens being parsed.</typeparam>
 /// <param name="input">The list of tokens to parse.</param>
 /// <returns>A result with a parsed value, or an empty result indicating error.</returns>
-public delegate TokenListParserResult<TKind, T> TokenListParser<TKind, T>(TokenList<TKind> input);
+public delegate TokenListParserResult<TKind, T> TokenListParser<TKind, T>(TokenList<TKind> input)
+    where T : allows ref struct;

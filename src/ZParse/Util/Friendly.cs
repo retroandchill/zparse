@@ -67,8 +67,10 @@ internal static class Friendly
         };
     }
 
-    public static string Clip(string value, int maxLength)
+    public static string Clip(ReadOnlySpan<char> value, int maxLength)
     {
-        return value.Length > maxLength ? $"{value[..(maxLength - 3)]}..." : value;
+        return value.Length > maxLength
+            ? $"{value[..(maxLength - 3)].ToString()}..."
+            : value.ToString();
     }
 }

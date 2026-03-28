@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 namespace ZParse.Model;
 
 /// <summary>
@@ -28,43 +30,45 @@ public readonly struct Token<TKind>
     /// <summary>
     /// The string span containing the value of the token.
     /// </summary>
-    public TextSpan Span { get; }
+    public TextSlice Slice { get; }
+
+    public TextSpan Span(ReadOnlySpan<char> source) => Slice.AsTextSpan(source);
 
     /// <summary>
     /// Get the string value of the token.
     /// </summary>
     /// <returns>The token as a string.</returns>
-    public string ToStringValue() => Span.ToStringValue();
+    public string ToStringValue(ReadOnlySpan<char> source) => Span(source).ToStringValue();
 
     /// <summary>
     /// The position of the token within the source string.
     /// </summary>
-    public Position Position => Span.Position;
+    public Position Position => Slice.Position;
 
     /// <summary>
     /// True if the token has a value.
     /// </summary>
-    public bool HasValue => Span != TextSpan.None;
+    public bool HasValue => Slice != TextSlice.None;
 
     /// <summary>
     /// Construct a token.
     /// </summary>
     /// <param name="kind">The kind of the token.</param>
-    /// <param name="span">The span holding the token's value.</param>
-    public Token(TKind kind, TextSpan span)
+    /// <param name="slice">The span holding the token's value.</param>
+    public Token(TKind kind, TextSlice slice)
     {
         Kind = kind;
-        Span = span;
+        Slice = slice;
     }
 
     /// <summary>
     /// A token with no value.
     /// </summary>
-    public static Token<TKind> Empty { get; } = default;
+    public static Token<TKind> Empty => default;
 
     /// <inheritdoc/>
     public override string ToString()
     {
-        return HasValue ? $"{Kind}@{Position}: {Span}" : "(empty token)";
+        return HasValue ? $"{Kind}@{Position}: {Slice}" : "(empty token)";
     }
 }

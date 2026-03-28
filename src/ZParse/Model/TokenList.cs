@@ -15,6 +15,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using ZLinq;
+using ZLinq.Internal;
 
 namespace ZParse.Model;
 
@@ -22,9 +24,14 @@ namespace ZParse.Model;
 /// A list of <see cref="Token{TKind}"/>
 /// </summary>
 /// <typeparam name="TKind">The kind of tokens held in the list.</typeparam>
-public readonly struct TokenList<TKind> : IEquatable<TokenList<TKind>>, IEnumerable<Token<TKind>>
+public readonly ref struct TokenList<TKind> : IEquatable<TokenList<TKind>>
 {
+    private const string CannotBeBoxed =
+        $"{nameof(TextSpan)} is a ref struct, and thus cannot be boxed.";
+
     private readonly Token<TKind>[]? _tokens;
+
+    public ReadOnlySpan<char> Source { get; }
 
     /// <summary>
     /// The position of the token list in the token stream.
@@ -35,13 +42,13 @@ public readonly struct TokenList<TKind> : IEquatable<TokenList<TKind>>, IEnumera
     /// Construct a token list containing <paramref name="tokens"/>.
     /// </summary>
     /// <param name="tokens">The tokens in the list.</param>
-    public TokenList(Token<TKind>[] tokens)
-        : this(tokens, 0)
+    public TokenList(ReadOnlySpan<char> source, Token<TKind>[] tokens)
+        : this(source, tokens, 0)
     {
         ArgumentNullException.ThrowIfNull(tokens);
     }
 
-    private TokenList(Token<TKind>[] tokens, int position)
+    private TokenList(ReadOnlySpan<char> source, Token<TKind>[] tokens, int position)
     {
 #if CHECKED // Called on every advance or backtrack
         ArgumentNullException.ThrowIfNull(tokens);
@@ -49,6 +56,7 @@ public readonly struct TokenList<TKind> : IEquatable<TokenList<TKind>>, IEnumera
             throw new ArgumentOutOfRangeException(nameof(position), "Position is past end + 1.");
 #endif
 
+        Source = source;
         Position = position;
         _tokens = tokens;
     }
@@ -91,37 +99,31 @@ public readonly struct TokenList<TKind> : IEquatable<TokenList<TKind>>, IEnumera
         return TokenListParserResult.Value(
             token,
             this,
-            new TokenList<TKind>(_tokens, Position + 1)
+            new TokenList<TKind>(Source, _tokens, Position + 1)
         );
     }
 
-    /// <inheritdoc/>
-    public IEnumerator<Token<TKind>> GetEnumerator()
+    public Enumerator GetEnumerator()
     {
         EnsureHasValue();
-
-        for (var position = Position; position < _tokens!.Length; ++position)
-            yield return _tokens[position];
+        return new Enumerator(this);
     }
 
-    IEnumerator IEnumerable.GetEnumerator()
+    public ValueEnumerable<Enumerator, Token<TKind>> AsValueEnumerable()
     {
-        return GetEnumerator();
+        return new ValueEnumerable<Enumerator, Token<TKind>>(GetEnumerator());
     }
 
     /// <inheritdoc/>
     public override bool Equals(object? obj)
     {
-        return obj is TokenList<TKind> other && Equals(other);
+        throw new NotSupportedException(CannotBeBoxed);
     }
 
     /// <inheritdoc/>
     public override int GetHashCode()
     {
-        unchecked
-        {
-            return ((_tokens?.GetHashCode() ?? 0) * 397) ^ Position;
-        }
+        throw new NotSupportedException(CannotBeBoxed);
     }
 
     /// <summary>
@@ -131,7 +133,9 @@ public readonly struct TokenList<TKind> : IEquatable<TokenList<TKind>>, IEnumera
     /// <returns>True if the token lists are the same.</returns>
     public bool Equals(TokenList<TKind> other)
     {
-        return Equals(_tokens, other._tokens) && Position == other.Position;
+        return Source == other.Source
+            && Equals(_tokens, other._tokens)
+            && Position == other.Position;
     }
 
     /// <summary>
@@ -163,18 +167,97 @@ public readonly struct TokenList<TKind> : IEquatable<TokenList<TKind>>, IEnumera
     }
 
     // A mildly expensive way to find the "end of input" position for error reporting.
-    internal Position ComputeEndOfInputPosition()
+    internal Position ComputeEndOfInputPosition(ReadOnlySpan<char> input)
     {
         EnsureHasValue();
 
         if (_tokens!.Length == 0)
             return Model.Position.Zero;
 
-        var lastSpan = _tokens[^1].Span;
+        var lastSpan = _tokens[^1].Span(input);
         var source = lastSpan.Source;
         var position = lastSpan.Position;
         for (var i = position.Absolute; i < source!.Length; ++i)
             position = position.Advance(source[i]);
         return position;
+    }
+
+    public ref struct Enumerator(TokenList<TKind> list)
+        : IEnumerator<Token<TKind>>,
+            IValueEnumerator<Token<TKind>>
+    {
+        private readonly TokenList<TKind> _list = list;
+        private int _index = list.Position - 1;
+
+        object IEnumerator.Current => Current;
+
+        /// <inheritdoc />
+        public Token<TKind> Current => _list._tokens![_index];
+
+        /// <inheritdoc />
+        public bool MoveNext()
+        {
+            if (_index >= _list._tokens!.Length)
+                return false;
+
+            _index++;
+            return _index < _list._tokens.Length;
+        }
+
+        /// <inheritdoc />
+        public bool TryGetNext(out Token<TKind> current)
+        {
+            if (MoveNext())
+            {
+                current = Current;
+                return true;
+            }
+
+            current = default;
+            return false;
+        }
+
+        /// <inheritdoc />
+        public bool TryGetNonEnumeratedCount(out int count)
+        {
+            count = _list._tokens!.Length;
+            return true;
+        }
+
+        /// <inheritdoc />
+        public bool TryGetSpan(out ReadOnlySpan<Token<TKind>> span)
+        {
+            span = _list._tokens!;
+            return true;
+        }
+
+        /// <inheritdoc />
+        public bool TryCopyTo(scoped Span<Token<TKind>> destination, Index offset)
+        {
+            if (
+                !EnumeratorHelper.TryGetSlice(
+                    _list._tokens!,
+                    offset,
+                    destination.Length,
+                    out var slice
+                )
+            )
+                return false;
+
+            slice.CopyTo(destination);
+            return true;
+        }
+
+        /// <inheritdoc />
+        public void Reset()
+        {
+            _index = _list.Position - 1;
+        }
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            // No resources to dispose of
+        }
     }
 }

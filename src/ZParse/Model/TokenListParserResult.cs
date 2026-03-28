@@ -25,7 +25,8 @@ namespace ZParse.Model;
 /// </summary>
 /// <typeparam name="T">The type of the value being parsed.</typeparam>
 /// <typeparam name="TKind">The kind of token being parsed.</typeparam>
-public struct TokenListParserResult<TKind, T>
+public ref struct TokenListParserResult<TKind, T>
+    where T : allows ref struct
 {
     /// <summary>
     /// If the result has a value, this carries the location of the value in the token
@@ -58,7 +59,7 @@ public struct TokenListParserResult<TKind, T>
 
             return !Remainder.IsAtEnd
                 ? Remainder.ConsumeToken().Value.Position
-                : Location.ComputeEndOfInputPosition();
+                : Location.ComputeEndOfInputPosition(Location.Source);
         }
     }
 
@@ -150,7 +151,12 @@ public struct TokenListParserResult<TKind, T>
             return "(Empty result.)";
 
         if (HasValue)
-            return $"Successful parsing of {Value}.";
+        {
+            var asString = Result<T>.Stringify?.Invoke(Value);
+            return asString is not null
+                ? $"Successful parsing of {asString}."
+                : "Successful parsing.";
+        }
 
         var message = FormatErrorMessageFragment();
         var location = "";
@@ -183,7 +189,10 @@ public struct TokenListParserResult<TKind, T>
         else
         {
             var next = Remainder.ConsumeToken().Value;
-            var appearance = Presentation.FormatAppearance(next.Kind, next.ToStringValue());
+            var appearance = Presentation.FormatAppearance(
+                next.Kind,
+                next.ToStringValue(Location.Source)
+            );
             message = $"unexpected {appearance}";
         }
 
@@ -210,6 +219,7 @@ public static class TokenListParserResult
     /// <param name="remainder">The start of un-parsed input.</param>
     /// <returns>An empty result.</returns>
     public static TokenListParserResult<TKind, T> Empty<TKind, T>(TokenList<TKind> remainder)
+        where T : allows ref struct
     {
         return new TokenListParserResult<TKind, T>(remainder, Position.Empty, null, [], false);
     }
@@ -226,6 +236,7 @@ public static class TokenListParserResult
         TokenList<TKind> remainder,
         ImmutableArray<string> expectations
     )
+        where T : allows ref struct
     {
         return new TokenListParserResult<TKind, T>(
             remainder,
@@ -248,6 +259,7 @@ public static class TokenListParserResult
         TokenList<TKind> remainder,
         TKind[] expectations
     )
+        where T : allows ref struct
     {
         var stringExpectations = expectations
             .Select(Presentation.FormatExpectation)
@@ -273,6 +285,7 @@ public static class TokenListParserResult
         TokenList<TKind> remainder,
         string errorMessage
     )
+        where T : allows ref struct
     {
         return new TokenListParserResult<TKind, T>(
             remainder,
@@ -298,6 +311,7 @@ public static class TokenListParserResult
         Position errorPosition,
         string errorMessage
     )
+        where T : allows ref struct
     {
         return new TokenListParserResult<TKind, T>(
             remainder,
@@ -322,6 +336,7 @@ public static class TokenListParserResult
         TokenList<TKind> location,
         TokenList<TKind> remainder
     )
+        where T : allows ref struct
     {
         return new TokenListParserResult<TKind, T>(value, location, remainder, false);
     }
@@ -337,6 +352,8 @@ public static class TokenListParserResult
     public static TokenListParserResult<TKind, TOther> CastEmpty<TKind, T, TOther>(
         TokenListParserResult<TKind, T> result
     )
+        where T : allows ref struct
+        where TOther : allows ref struct
     {
         return new TokenListParserResult<TKind, TOther>(
             result.Remainder,
@@ -359,6 +376,7 @@ public static class TokenListParserResult
         TokenListParserResult<TKind, T> first,
         TokenListParserResult<TKind, T> second
     )
+        where T : allows ref struct
     {
         if (first.Remainder != second.Remainder)
             return second;

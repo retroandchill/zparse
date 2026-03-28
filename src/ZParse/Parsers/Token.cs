@@ -84,7 +84,7 @@ public static class Token
         return value is null
             ? throw new ArgumentNullException(nameof(value))
             : EqualTo(kind)
-                .Where(t => t.Span.EqualsValue(value))
+                .Where((s, t) => t.Span(s).EqualsValue(value))
                 .Named(Presentation.FormatLiteral(value));
     }
 
@@ -103,7 +103,7 @@ public static class Token
         return value is null
             ? throw new ArgumentNullException(nameof(value))
             : EqualTo(kind)
-                .Where(t => t.Span.EqualsValueIgnoreCase(value))
+                .Where((s, t) => t.Span(s).EqualsValueIgnoreCase(value))
                 .Named(Presentation.FormatLiteral(value));
     }
 

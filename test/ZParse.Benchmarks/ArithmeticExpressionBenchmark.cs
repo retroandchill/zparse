@@ -18,9 +18,6 @@ public class ArithmeticExpressionBenchmark
     private static readonly ArithmeticExpressionTokenizer Tokenizer = new();
     private const string Expression =
         "123 + 456 * 123 - 456 / 123 + 456 * 123 - 456 / 123 + 456 * 123 - 456 / 123 + 456 * 123 - 456 / 123 + 456 * 123 - 456";
-    private static readonly TokenList<ArithmeticExpressionToken> Tokens = Tokenizer.Tokenize(
-        Expression
-    );
     private const int ExpectedValue = 280095;
 
     [Fact]
@@ -52,7 +49,8 @@ public class ArithmeticExpressionBenchmark
     [Benchmark]
     public static Expression<Func<int>> SuperpowerTokenListParser()
     {
-        return ArithmeticExpressionParser.Lambda.Parse(Tokens);
+        var tokens = Tokenizer.Tokenize(Expression);
+        return ArithmeticExpressionParser.Lambda.Parse(tokens);
     }
 
     [Benchmark]

@@ -157,6 +157,7 @@ public static class Parse
     /// <param name="parser">The parser to wrap</param>
     /// <returns>A parser that is the negation of the given parser.</returns>
     public static TextParser<Unit> Not<T>(TextParser<T> parser)
+        where T : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(parser);
 
@@ -168,7 +169,7 @@ public static class Parse
                 ? Result.Value(Unit.Value, input, input)
                 : Result.Empty<Unit>(
                     input,
-                    $"unexpected successful parsing of `{input.Until(result.Remainder)}`"
+                    $"unexpected successful parsing of `{input.Until(result.Remainder).ToString()}`"
                 );
         };
     }
@@ -202,11 +203,13 @@ public static class Parse
                     "unexpected successful parsing"
                 );
             var span = last.HasValue
-                ? current.Value.Span.Source!.Substring(
-                    current.Value.Position.Absolute,
-                    last.Value.Position.Absolute - current.Value.Position.Absolute
-                )
-                : current.Value.Span.Source![current.Value.Position.Absolute..];
+                ? current
+                    .Value.Span(input.Source)
+                    .Source.Slice(
+                        current.Value.Position.Absolute,
+                        last.Value.Position.Absolute - current.Value.Position.Absolute
+                    )
+                : current.Value.Span(input.Source).Source[current.Value.Position.Absolute..];
 
             return TokenListParserResult.Empty<TKind, Unit>(
                 input,
@@ -290,10 +293,12 @@ public static class Parse
     /// <param name="parser1">The first parser to apply.</param>
     /// <param name="parser2">The second parser to apply.</param>
     /// <returns>The resulting parser.</returns>
-    public static TokenListParser<TKind, (T1, T2)> Sequence<TKind, T1, T2>(
+    public static TokenListParser<TKind, RefTuple<T1, T2>> Sequence<TKind, T1, T2>(
         TokenListParser<TKind, T1> parser1,
         TokenListParser<TKind, T2> parser2
     )
+        where T1 : allows ref struct
+        where T2 : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(parser1);
         ArgumentNullException.ThrowIfNull(parser2);
@@ -302,12 +307,16 @@ public static class Parse
         {
             var rt = parser1(input);
             if (!rt.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T1, (T1, T2)>(rt);
+                return TokenListParserResult.CastEmpty<TKind, T1, RefTuple<T1, T2>>(rt);
 
             var ru = parser2(rt.Remainder);
             return ru.HasValue
-                ? TokenListParserResult.Value((rt.Value, ru.Value), input, ru.Remainder)
-                : TokenListParserResult.CastEmpty<TKind, T2, (T1, T2)>(ru);
+                ? TokenListParserResult.Value(
+                    RefTuple.Create(rt.Value, ru.Value),
+                    input,
+                    ru.Remainder
+                )
+                : TokenListParserResult.CastEmpty<TKind, T2, RefTuple<T1, T2>>(ru);
         };
     }
 
@@ -322,11 +331,14 @@ public static class Parse
     /// <param name="parser2">The second parser to apply.</param>
     /// <param name="parser3">The third parser to apply.</param>
     /// <returns>The resulting parser.</returns>
-    public static TokenListParser<TKind, (T1, T2, T3)> Sequence<TKind, T1, T2, T3>(
+    public static TokenListParser<TKind, RefTuple<T1, T2, T3>> Sequence<TKind, T1, T2, T3>(
         TokenListParser<TKind, T1> parser1,
         TokenListParser<TKind, T2> parser2,
         TokenListParser<TKind, T3> parser3
     )
+        where T1 : allows ref struct
+        where T2 : allows ref struct
+        where T3 : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(parser1);
         ArgumentNullException.ThrowIfNull(parser2);
@@ -336,16 +348,20 @@ public static class Parse
         {
             var rt = parser1(input);
             if (!rt.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T1, (T1, T2, T3)>(rt);
+                return TokenListParserResult.CastEmpty<TKind, T1, RefTuple<T1, T2, T3>>(rt);
 
             var ru = parser2(rt.Remainder);
             if (!ru.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T2, (T1, T2, T3)>(ru);
+                return TokenListParserResult.CastEmpty<TKind, T2, RefTuple<T1, T2, T3>>(ru);
 
             var rv = parser3(ru.Remainder);
             return rv.HasValue
-                ? TokenListParserResult.Value((rt.Value, ru.Value, rv.Value), input, rv.Remainder)
-                : TokenListParserResult.CastEmpty<TKind, T3, (T1, T2, T3)>(rv);
+                ? TokenListParserResult.Value(
+                    RefTuple.Create(rt.Value, ru.Value, rv.Value),
+                    input,
+                    rv.Remainder
+                )
+                : TokenListParserResult.CastEmpty<TKind, T3, RefTuple<T1, T2, T3>>(rv);
         };
     }
 
@@ -362,12 +378,16 @@ public static class Parse
     /// <param name="parser3">The third parser to apply.</param>
     /// <param name="parser4">The fourth parser to apply.</param>
     /// <returns>The resulting parser.</returns>
-    public static TokenListParser<TKind, (T1, T2, T3, T4)> Sequence<TKind, T1, T2, T3, T4>(
+    public static TokenListParser<TKind, RefTuple<T1, T2, T3, T4>> Sequence<TKind, T1, T2, T3, T4>(
         TokenListParser<TKind, T1> parser1,
         TokenListParser<TKind, T2> parser2,
         TokenListParser<TKind, T3> parser3,
         TokenListParser<TKind, T4> parser4
     )
+        where T1 : allows ref struct
+        where T2 : allows ref struct
+        where T3 : allows ref struct
+        where T4 : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(parser1);
         ArgumentNullException.ThrowIfNull(parser2);
@@ -378,24 +398,24 @@ public static class Parse
         {
             var rt = parser1(input);
             if (!rt.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T1, (T1, T2, T3, T4)>(rt);
+                return TokenListParserResult.CastEmpty<TKind, T1, RefTuple<T1, T2, T3, T4>>(rt);
 
             var ru = parser2(rt.Remainder);
             if (!ru.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T2, (T1, T2, T3, T4)>(ru);
+                return TokenListParserResult.CastEmpty<TKind, T2, RefTuple<T1, T2, T3, T4>>(ru);
 
             var rv = parser3(ru.Remainder);
             if (!rv.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T3, (T1, T2, T3, T4)>(rv);
+                return TokenListParserResult.CastEmpty<TKind, T3, RefTuple<T1, T2, T3, T4>>(rv);
 
             var rw = parser4(rv.Remainder);
             return rw.HasValue
                 ? TokenListParserResult.Value(
-                    (rt.Value, ru.Value, rv.Value, rw.Value),
+                    RefTuple.Create(rt.Value, ru.Value, rv.Value, rw.Value),
                     input,
                     rw.Remainder
                 )
-                : TokenListParserResult.CastEmpty<TKind, T4, (T1, T2, T3, T4)>(rw);
+                : TokenListParserResult.CastEmpty<TKind, T4, RefTuple<T1, T2, T3, T4>>(rw);
         };
     }
 
@@ -414,13 +434,25 @@ public static class Parse
     /// <param name="parser4">The fourth parser to apply.</param>
     /// <param name="parser5">The fifth parser to apply.</param>
     /// <returns>The resulting parser.</returns>
-    public static TokenListParser<TKind, (T1, T2, T3, T4, T5)> Sequence<TKind, T1, T2, T3, T4, T5>(
+    public static TokenListParser<TKind, RefTuple<T1, T2, T3, T4, T5>> Sequence<
+        TKind,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5
+    >(
         TokenListParser<TKind, T1> parser1,
         TokenListParser<TKind, T2> parser2,
         TokenListParser<TKind, T3> parser3,
         TokenListParser<TKind, T4> parser4,
         TokenListParser<TKind, T5> parser5
     )
+        where T1 : allows ref struct
+        where T2 : allows ref struct
+        where T3 : allows ref struct
+        where T4 : allows ref struct
+        where T5 : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(parser1);
         ArgumentNullException.ThrowIfNull(parser2);
@@ -432,28 +464,28 @@ public static class Parse
         {
             var rt = parser1(input);
             if (!rt.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T1, (T1, T2, T3, T4, T5)>(rt);
+                return TokenListParserResult.CastEmpty<TKind, T1, RefTuple<T1, T2, T3, T4, T5>>(rt);
 
             var ru = parser2(rt.Remainder);
             if (!ru.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T2, (T1, T2, T3, T4, T5)>(ru);
+                return TokenListParserResult.CastEmpty<TKind, T2, RefTuple<T1, T2, T3, T4, T5>>(ru);
 
             var rv = parser3(ru.Remainder);
             if (!rv.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T3, (T1, T2, T3, T4, T5)>(rv);
+                return TokenListParserResult.CastEmpty<TKind, T3, RefTuple<T1, T2, T3, T4, T5>>(rv);
 
             var rw = parser4(rv.Remainder);
             if (!rw.HasValue)
-                return TokenListParserResult.CastEmpty<TKind, T4, (T1, T2, T3, T4, T5)>(rw);
+                return TokenListParserResult.CastEmpty<TKind, T4, RefTuple<T1, T2, T3, T4, T5>>(rw);
 
             var rx = parser5(rw.Remainder);
             return rx.HasValue
                 ? TokenListParserResult.Value(
-                    (rt.Value, ru.Value, rv.Value, rw.Value, rx.Value),
+                    RefTuple.Create(rt.Value, ru.Value, rv.Value, rw.Value, rx.Value),
                     input,
                     rx.Remainder
                 )
-                : TokenListParserResult.CastEmpty<TKind, T5, (T1, T2, T3, T4, T5)>(rx);
+                : TokenListParserResult.CastEmpty<TKind, T5, RefTuple<T1, T2, T3, T4, T5>>(rx);
         };
     }
 
@@ -465,10 +497,12 @@ public static class Parse
     /// <param name="parser1">The first parser to apply.</param>
     /// <param name="parser2">The second parser to apply.</param>
     /// <returns>The resulting parser.</returns>
-    public static TextParser<(T1, T2)> Sequence<T1, T2>(
+    public static TextParser<RefTuple<T1, T2>> Sequence<T1, T2>(
         TextParser<T1> parser1,
         TextParser<T2> parser2
     )
+        where T1 : allows ref struct
+        where T2 : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(parser1);
         ArgumentNullException.ThrowIfNull(parser2);
@@ -477,12 +511,12 @@ public static class Parse
         {
             var rt = parser1(input);
             if (!rt.HasValue)
-                return Result.CastEmpty<T1, (T1, T2)>(rt);
+                return Result.CastEmpty<T1, RefTuple<T1, T2>>(rt);
 
             var ru = parser2(rt.Remainder);
             return ru.HasValue
-                ? Result.Value((rt.Value, ru.Value), input, ru.Remainder)
-                : Result.CastEmpty<T2, (T1, T2)>(ru);
+                ? Result.Value(RefTuple.Create(rt.Value, ru.Value), input, ru.Remainder)
+                : Result.CastEmpty<T2, RefTuple<T1, T2>>(ru);
         };
     }
 
@@ -496,11 +530,14 @@ public static class Parse
     /// <param name="parser2">The second parser to apply.</param>
     /// <param name="parser3">The third parser to apply.</param>
     /// <returns>The resulting parser.</returns>
-    public static TextParser<(T1, T2, T3)> Sequence<T1, T2, T3>(
+    public static TextParser<RefTuple<T1, T2, T3>> Sequence<T1, T2, T3>(
         TextParser<T1> parser1,
         TextParser<T2> parser2,
         TextParser<T3> parser3
     )
+        where T1 : allows ref struct
+        where T2 : allows ref struct
+        where T3 : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(parser1);
         ArgumentNullException.ThrowIfNull(parser2);
@@ -510,16 +547,16 @@ public static class Parse
         {
             var rt = parser1(input);
             if (!rt.HasValue)
-                return Result.CastEmpty<T1, (T1, T2, T3)>(rt);
+                return Result.CastEmpty<T1, RefTuple<T1, T2, T3>>(rt);
 
             var ru = parser2(rt.Remainder);
             if (!ru.HasValue)
-                return Result.CastEmpty<T2, (T1, T2, T3)>(ru);
+                return Result.CastEmpty<T2, RefTuple<T1, T2, T3>>(ru);
 
             var rv = parser3(ru.Remainder);
             return rv.HasValue
-                ? Result.Value((rt.Value, ru.Value, rv.Value), input, rv.Remainder)
-                : Result.CastEmpty<T3, (T1, T2, T3)>(rv);
+                ? Result.Value(RefTuple.Create(rt.Value, ru.Value, rv.Value), input, rv.Remainder)
+                : Result.CastEmpty<T3, RefTuple<T1, T2, T3>>(rv);
         };
     }
 
@@ -535,12 +572,16 @@ public static class Parse
     /// <param name="parser3">The third parser to apply.</param>
     /// <param name="parser4">The fourth parser to apply.</param>
     /// <returns>The resulting parser.</returns>
-    public static TextParser<(T1, T2, T3, T4)> Sequence<T1, T2, T3, T4>(
+    public static TextParser<RefTuple<T1, T2, T3, T4>> Sequence<T1, T2, T3, T4>(
         TextParser<T1> parser1,
         TextParser<T2> parser2,
         TextParser<T3> parser3,
         TextParser<T4> parser4
     )
+        where T1 : allows ref struct
+        where T2 : allows ref struct
+        where T3 : allows ref struct
+        where T4 : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(parser1);
         ArgumentNullException.ThrowIfNull(parser2);
@@ -551,20 +592,24 @@ public static class Parse
         {
             var rt = parser1(input);
             if (!rt.HasValue)
-                return Result.CastEmpty<T1, (T1, T2, T3, T4)>(rt);
+                return Result.CastEmpty<T1, RefTuple<T1, T2, T3, T4>>(rt);
 
             var ru = parser2(rt.Remainder);
             if (!ru.HasValue)
-                return Result.CastEmpty<T2, (T1, T2, T3, T4)>(ru);
+                return Result.CastEmpty<T2, RefTuple<T1, T2, T3, T4>>(ru);
 
             var rv = parser3(ru.Remainder);
             if (!rv.HasValue)
-                return Result.CastEmpty<T3, (T1, T2, T3, T4)>(rv);
+                return Result.CastEmpty<T3, RefTuple<T1, T2, T3, T4>>(rv);
 
             var rw = parser4(rv.Remainder);
             return rw.HasValue
-                ? Result.Value((rt.Value, ru.Value, rv.Value, rw.Value), input, rw.Remainder)
-                : Result.CastEmpty<T4, (T1, T2, T3, T4)>(rw);
+                ? Result.Value(
+                    RefTuple.Create(rt.Value, ru.Value, rv.Value, rw.Value),
+                    input,
+                    rw.Remainder
+                )
+                : Result.CastEmpty<T4, RefTuple<T1, T2, T3, T4>>(rw);
         };
     }
 
@@ -582,13 +627,18 @@ public static class Parse
     /// <param name="parser4">The fourth parser to apply.</param>
     /// <param name="parser5">The fifth parser to apply.</param>
     /// <returns>The resulting parser.</returns>
-    public static TextParser<(T1, T2, T3, T4, T5)> Sequence<T1, T2, T3, T4, T5>(
+    public static TextParser<RefTuple<T1, T2, T3, T4, T5>> Sequence<T1, T2, T3, T4, T5>(
         TextParser<T1> parser1,
         TextParser<T2> parser2,
         TextParser<T3> parser3,
         TextParser<T4> parser4,
         TextParser<T5> parser5
     )
+        where T1 : allows ref struct
+        where T2 : allows ref struct
+        where T3 : allows ref struct
+        where T4 : allows ref struct
+        where T5 : allows ref struct
     {
         ArgumentNullException.ThrowIfNull(parser1);
         ArgumentNullException.ThrowIfNull(parser2);
@@ -600,28 +650,28 @@ public static class Parse
         {
             var rt = parser1(input);
             if (!rt.HasValue)
-                return Result.CastEmpty<T1, (T1, T2, T3, T4, T5)>(rt);
+                return Result.CastEmpty<T1, RefTuple<T1, T2, T3, T4, T5>>(rt);
 
             var ru = parser2(rt.Remainder);
             if (!ru.HasValue)
-                return Result.CastEmpty<T2, (T1, T2, T3, T4, T5)>(ru);
+                return Result.CastEmpty<T2, RefTuple<T1, T2, T3, T4, T5>>(ru);
 
             var rv = parser3(ru.Remainder);
             if (!rv.HasValue)
-                return Result.CastEmpty<T3, (T1, T2, T3, T4, T5)>(rv);
+                return Result.CastEmpty<T3, RefTuple<T1, T2, T3, T4, T5>>(rv);
 
             var rw = parser4(rv.Remainder);
             if (!rw.HasValue)
-                return Result.CastEmpty<T4, (T1, T2, T3, T4, T5)>(rw);
+                return Result.CastEmpty<T4, RefTuple<T1, T2, T3, T4, T5>>(rw);
 
             var rx = parser5(rw.Remainder);
             return rx.HasValue
                 ? Result.Value(
-                    (rt.Value, ru.Value, rv.Value, rw.Value, rx.Value),
+                    RefTuple.Create(rt.Value, ru.Value, rv.Value, rw.Value, rx.Value),
                     input,
                     rx.Remainder
                 )
-                : Result.CastEmpty<T5, (T1, T2, T3, T4, T5)>(rx);
+                : Result.CastEmpty<T5, RefTuple<T1, T2, T3, T4, T5>>(rx);
         };
     }
 
@@ -657,6 +707,7 @@ public static class Parse
     /// <param name="parsers">The parser to try from left to right.</param>
     /// <returns>A parser which applies one of the specified parsers.</returns>
     public static TextParser<T> OneOf<T>(params ReadOnlySpan<TextParser<T>> parsers)
+        where T : allows ref struct
     {
         if (parsers.Length == 0)
         {

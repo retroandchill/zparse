@@ -22,7 +22,8 @@ namespace ZParse.Model;
 /// The result of parsing from a text span.
 /// </summary>
 /// <typeparam name="T">The type of the value being parsed.</typeparam>
-public struct Result<T>
+public readonly ref struct Result<T>
+    where T : allows ref struct
 {
     /// <summary>
     /// If the result is a value, the location in the input corresponding to the
@@ -57,13 +58,22 @@ public struct Result<T>
 
     internal bool IsPartial(TextSpan from) => from != Remainder;
 
-    internal bool Backtrack { get; set; }
+    internal bool Backtrack { get; init; }
 
     /// <summary>
     /// The parsed value.
     /// </summary>
     public T Value =>
         HasValue ? field : throw new InvalidOperationException($"{nameof(Result)} has no value.");
+
+    internal static readonly Func<T, string>? Stringify;
+
+    static Result()
+    {
+        Stringify = typeof(T)
+            .GetMethod(nameof(ToString), Type.EmptyTypes)
+            ?.CreateDelegate<Func<T, string>>();
+    }
 
     internal Result(T value, TextSpan location, TextSpan remainder, bool backtrack)
     {
@@ -115,7 +125,11 @@ public struct Result<T>
             return "(Empty result.)";
 
         if (HasValue)
-            return $"Successful parsing of {Value}.";
+        {
+            return Stringify is not null
+                ? $"Successful parsing of {Stringify(Value)}."
+                : "Successful parsing.";
+        }
 
         var message = FormatErrorMessageFragment();
         var location = "";
@@ -169,6 +183,7 @@ public static class Result
     /// <param name="remainder">The start of un-parsed input.</param>
     /// <returns>A result.</returns>
     public static Result<T> Empty<T>(TextSpan remainder)
+        where T : allows ref struct
     {
         return new Result<T>(remainder, null, [], false);
     }
@@ -181,6 +196,7 @@ public static class Result
     /// <param name="expectations">Literal descriptions of expectations not met.</param>
     /// <returns>A result.</returns>
     public static Result<T> Empty<T>(TextSpan remainder, ImmutableArray<string> expectations)
+        where T : allows ref struct
     {
         return new Result<T>(remainder, null, expectations, false);
     }
@@ -193,6 +209,7 @@ public static class Result
     /// <param name="errorMessage">Error message to present.</param>
     /// <returns>A result.</returns>
     public static Result<T> Empty<T>(TextSpan remainder, string errorMessage)
+        where T : allows ref struct
     {
         return new Result<T>(remainder, errorMessage, [], false);
     }
@@ -206,6 +223,7 @@ public static class Result
     /// <param name="remainder">The start of un-parsed input.</param>
     /// <returns>A result.</returns>
     public static Result<T> Value<T>(T value, TextSpan location, TextSpan remainder)
+        where T : allows ref struct
     {
         return new Result<T>(value, location, remainder, false);
     }
@@ -213,11 +231,13 @@ public static class Result
     /// <summary>
     /// Convert an empty result of one type into another.
     /// </summary>
-    /// <typeparam name="T">The source type.</typeparam>
-    /// <typeparam name="TOther">The target type.</typeparam>
     /// <param name="result">The value to convert.</param>
+    /// <typeparam name="TOther">The target type.</typeparam>
+    /// <typeparam name="T">The source type.</typeparam>
     /// <returns>A result of type <typeparamref name="TOther"/> carrying the same information as <paramref name="result"/>.</returns>
     public static Result<TOther> CastEmpty<T, TOther>(Result<T> result)
+        where T : allows ref struct
+        where TOther : allows ref struct
     {
         return new Result<TOther>(
             result.Remainder,
@@ -230,20 +250,21 @@ public static class Result
     /// <summary>
     /// Combine two empty results.
     /// </summary>
-    /// <typeparam name="T">The source type.</typeparam>
-    /// <param name="first">The first value to combine.</param>
     /// <param name="second">The second value to combine.</param>
+    /// <param name="result">The value to convert.</param>
+    /// <typeparam name="T">The source type.</typeparam>
     /// <returns>A result of type <typeparamref name="T"/> carrying information from both results.</returns>
-    public static Result<T> CombineEmpty<T>(Result<T> first, Result<T> second)
+    public static Result<T> CombineEmpty<T>(Result<T> result, Result<T> second)
+        where T : allows ref struct
     {
-        if (first.Remainder != second.Remainder)
+        if (result.Remainder != second.Remainder)
             return second;
 
-        var expectations = first.Expectations;
+        var expectations = result.Expectations;
         if (expectations.IsDefaultOrEmpty)
             expectations = second.Expectations;
         else if (!second.Expectations.IsDefaultOrEmpty)
-            expectations = first.Expectations.AddRange(second.Expectations);
+            expectations = result.Expectations.AddRange(second.Expectations);
 
         return new Result<T>(second.Remainder, second.ErrorMessage, expectations, second.Backtrack);
     }
