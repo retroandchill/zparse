@@ -15,7 +15,6 @@ public class PreviousCheckingTokenizer : Tokenizer<int, PreviousCheckingTokenize
         : ITokenEnumerator<int>
     {
         private readonly TextSpan _span = span;
-        private TextSpan _remainder = span;
         private Result<char> _next = default;
         private int _index = 0;
 

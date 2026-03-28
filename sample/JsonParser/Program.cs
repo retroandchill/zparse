@@ -220,7 +220,7 @@ internal static class JsonTextParsers
             )
             .Many()
         from close in Character.EqualTo('"')
-        select new string(chars);
+        select new string(chars.AsSpan());
 
     // The number parser here works with some pretty ugly `double`-based
     // maths; it's tricky enough that in a real-world parser, it would

@@ -37,7 +37,7 @@ public static class QuotedString
         Character
             .EqualTo('\'')
             .IgnoreThen(SqlStringContentChar.Many())
-            .Then(s => Character.EqualTo('\'').Value(new string(s)));
+            .Then(s => Character.EqualTo('\'').Value(new string(s.AsSpan())));
 
     /// <summary>
     /// A <code>"C-style"</code> string. Double quote delimiters, with ability to escape
@@ -47,5 +47,5 @@ public static class QuotedString
         Character
             .EqualTo('"')
             .IgnoreThen(CStringContentChar.Many())
-            .Then(s => Character.EqualTo('"').Value(new string(s)));
+            .Then(s => Character.EqualTo('"').Value(new string(s.AsSpan())));
 }

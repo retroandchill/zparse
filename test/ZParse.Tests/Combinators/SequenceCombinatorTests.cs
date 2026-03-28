@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿using System.Collections.Immutable;
+using Xunit;
 using ZParse.Model;
 using ZParse.Parsers;
 using ZParse.Tests.Support;
@@ -61,7 +62,7 @@ public class SequenceCombinatorTests
         // Keeping this instance as an example, but using the "cleaner" .Item1, .Item2 syntax below.
         var p = Parse
             .Sequence(Token.EqualTo('1'), Token.EqualTo('w'))
-            .Select((t) => new[] { t.Item1, t.Item2 });
+            .Select((t) => ImmutableArray.Create(t.Item1, t.Item2));
 
         AssertParser.SucceedsWithAll(p, "1w");
     }
@@ -71,7 +72,7 @@ public class SequenceCombinatorTests
     {
         var p = Parse
             .Sequence(Token.EqualTo('1'), Token.EqualTo('w'), Token.EqualTo('U'))
-            .Select(t => new[] { t.Item1, t.Item2, t.Item3 });
+            .Select(t => ImmutableArray.Create(t.Item1, t.Item2, t.Item3));
         AssertParser.SucceedsWithAll(p, "1wU");
     }
 
@@ -85,7 +86,7 @@ public class SequenceCombinatorTests
                 Token.EqualTo('U'),
                 Token.EqualTo('h')
             )
-            .Select(t => new[] { t.Item1, t.Item2, t.Item3, t.Item4 });
+            .Select(t => ImmutableArray.Create(t.Item1, t.Item2, t.Item3, t.Item4));
         AssertParser.SucceedsWithAll(p, "1wUh");
     }
 
@@ -100,7 +101,7 @@ public class SequenceCombinatorTests
                 Token.EqualTo('h'),
                 Token.EqualTo('h')
             )
-            .Select(t => new[] { t.Item1, t.Item2, t.Item3, t.Item4, t.Item5 });
+            .Select(t => ImmutableArray.Create(t.Item1, t.Item2, t.Item3, t.Item4, t.Item5));
         AssertParser.SucceedsWithAll(p, "1wUhh");
     }
 

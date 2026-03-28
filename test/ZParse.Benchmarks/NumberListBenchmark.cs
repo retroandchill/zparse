@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Immutable;
+using System.Linq;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using Sprache;
@@ -17,7 +19,7 @@ public class NumberListBenchmark
     private static readonly Input SpracheInput = new(Numbers);
     private static TextSpan SuperpowerTextSpan => new(Numbers);
 
-    private static void AssertComplete(int[] numbers)
+    private static void AssertComplete(ReadOnlySpan<int> numbers)
     {
         Assert.Equal(NumbersLength, numbers.Length);
         for (var i = 0; i < NumbersLength; ++i)
@@ -29,8 +31,8 @@ public class NumberListBenchmark
     {
         AssertComplete(StringSplitAndInt32Parse());
         AssertComplete(SpracheText().Value);
-        AssertComplete(SuperpowerText().Value);
-        AssertComplete(SuperpowerToken().Value);
+        AssertComplete(SuperpowerText().Value.AsSpan());
+        AssertComplete(SuperpowerToken().Value.AsSpan());
     }
 
     [Fact]
@@ -64,27 +66,29 @@ public class NumberListBenchmark
         return SpracheParser(SpracheInput);
     }
 
-    private static readonly TextParser<int[]> SuperpowerTextParser = Span
+    private static readonly TextParser<ImmutableArray<int>> SuperpowerTextParser = Span
         .WhiteSpace.OptionalOrDefault()
         .IgnoreThen(Numerics.IntegerInt32)
         .Many()
         .AtEnd();
 
     [Benchmark]
-    public static Result<int[]> SuperpowerText()
+    public static Result<ImmutableArray<int>> SuperpowerText()
     {
         return SuperpowerTextParser(SuperpowerTextSpan);
     }
 
-    private static readonly TokenListParser<NumberListToken, int[]> SuperpowerTokenListParser =
-        Token
-            .EqualTo(NumberListToken.Number)
-            .Apply(Numerics.IntegerInt32) // Slower that int.Parse(), but worth benchmarking
-            .Many()
-            .AtEnd();
+    private static readonly TokenListParser<
+        NumberListToken,
+        ImmutableArray<int>
+    > SuperpowerTokenListParser = Token
+        .EqualTo(NumberListToken.Number)
+        .Apply(Numerics.IntegerInt32) // Slower that int.Parse(), but worth benchmarking
+        .Many()
+        .AtEnd();
 
     [Benchmark]
-    public static TokenListParserResult<NumberListToken, int[]> SuperpowerToken()
+    public static TokenListParserResult<NumberListToken, ImmutableArray<int>> SuperpowerToken()
     {
         return SuperpowerTokenListParser(NumberListTokenizer.Instance.Tokenize(Numbers));
     }

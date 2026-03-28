@@ -13,7 +13,7 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
+using System.Collections.Immutable;
 using ZParse.Display;
 using ZParse.Model;
 using ZParse.Util;
@@ -220,6 +220,286 @@ public static class Combinators
                 return !ru.HasValue
                     ? ru
                     : TokenListParserResult.Value(ru.Value, input, ru.Remainder);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches one or more instances of applying <paramref name="parser"/>.
+        /// </summary>
+        /// <param name="identity">The identity function for the intermediate result.</param>
+        /// <param name="append">The function to append a new value to the intermediate result.</param>
+        /// <param name="combine">The function to combine the intermediate result and the final result.</param>
+        /// <typeparam name="TIntermediate">The type of the intermediate result.</typeparam>
+        /// <typeparam name="TResult">The type of the final result.</typeparam>
+        /// <returns>The resulting parser.</returns>
+        public TokenListParser<TKind, TResult> AtLeastOnce<TIntermediate, TResult>(
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine
+        )
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                var from = input;
+                var r = parser(input);
+                if (!r.HasValue)
+                {
+                    return TokenListParserResult.CastEmpty<TKind, T, TResult>(r);
+                }
+
+                var result = identity();
+                while (r.HasValue)
+                {
+                    if (from == r.Remainder) // Broken parser, not a failed parsing.
+                        throw new ParseException(
+                            $"Many() cannot be applied to zero-width parsers; at position {r.Location.Position}.",
+                            r.ErrorPosition
+                        );
+
+                    result = append(result, r.Value);
+
+                    from = r.Remainder;
+                    r = parser(r.Remainder);
+                }
+
+                if (!r.Backtrack && r.IsPartial(from))
+                    return TokenListParserResult.CastEmpty<TKind, T, TResult>(r);
+
+                return TokenListParserResult.Value(combine(result), input, from);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches a specified number of instances of applying <paramref name="parser"/>.
+        /// </summary>
+        /// <param name="count">The number of times to apply <paramref name="parser"/>.</param>
+        /// <param name="identity">The identity function for the intermediate result.</param>
+        /// <param name="append">The function to append a new value to the intermediate result.</param>
+        /// <param name="combine">The function to combine the intermediate result and the final result.</param>
+        /// <typeparam name="TIntermediate">The type of the intermediate result.</typeparam>
+        /// <typeparam name="TResult">The type of the final result.</typeparam>
+        /// <returns>The resulting parser.</returns>
+        public TokenListParser<TKind, TResult> Repeat<TIntermediate, TResult>(
+            int count,
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine
+        )
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                // Assuming we'll try the parser and fail quite often, allocating the result
+                // array lazily should save some allocs for not much effort here.
+                var result = identity();
+                var remainder = input;
+                for (var i = 0; i < count; ++i)
+                {
+                    var r = parser(remainder);
+                    if (!r.HasValue)
+                        return TokenListParserResult.CastEmpty<TKind, T, TResult>(r);
+
+                    result = append(result, r.Value);
+                    remainder = r.Remainder;
+                }
+
+                return TokenListParserResult.Value(combine(result), input, remainder);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches one or more instances of applying <paramref name="parser"/>, delimited by <paramref name="delimiter"/>.
+        /// </summary>
+        /// <param name="delimiter">The parser that matches the delimiters.</param>
+        /// <param name="identity">The identity function for the intermediate result.</param>
+        /// <param name="append">The function to append a new value to the intermediate result.</param>
+        /// <param name="combine">The function to combine the intermediate result and the final result.</param>
+        /// <typeparam name="TOther">The type of the resulting value.</typeparam>
+        /// <typeparam name="TIntermediate">The type of the intermediate result.</typeparam>
+        /// <typeparam name="TResult">The type of the final result.</typeparam>
+        /// <returns>The resulting parser.</returns>
+        public TokenListParser<TKind, TResult> AtLeastOnceDelimitedBy<
+            TOther,
+            TIntermediate,
+            TResult
+        >(
+            TokenListParser<TKind, TOther> delimiter,
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine
+        )
+            where TOther : allows ref struct
+            where TIntermediate : allows ref struct
+            where TResult : allows ref struct
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentNullException.ThrowIfNull(delimiter);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                var from = input;
+                var r = parser(input);
+                if (!r.HasValue)
+                {
+                    return TokenListParserResult.CastEmpty<TKind, T, TResult>(r);
+                }
+
+                var result = identity();
+                while (r.HasValue)
+                {
+                    if (from == r.Remainder) // Broken parser, not a failed parsing.
+                        throw new ParseException(
+                            $"Many() cannot be applied to zero-width parsers; at position {r.Location.Position}.",
+                            r.ErrorPosition
+                        );
+
+                    result = append(result, r.Value);
+
+                    var delimiterResult = delimiter(r.Remainder);
+                    if (!delimiterResult.HasValue)
+                    {
+                        break;
+                    }
+
+                    from = r.Remainder;
+                    r = parser(r.Remainder);
+                }
+
+                if (!r.Backtrack && r.IsPartial(from))
+                    return TokenListParserResult.CastEmpty<TKind, T, TResult>(r);
+
+                return TokenListParserResult.Value(combine(result), input, from);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches <paramref name="parser"/> zero or more times.
+        /// </summary>
+        /// <param name="identity">The identity function for the intermediate result.</param>
+        /// <param name="append">The function to append a new value to the intermediate result.</param>
+        /// <param name="combine">The function to combine the intermediate result and the final result.</param>
+        /// <typeparam name="TIntermediate">The type of the intermediate result.</typeparam>
+        /// <typeparam name="TResult">The type of the final result.</typeparam>
+        /// <returns>The resulting parser.</returns>
+        /// <remarks>Many will fail if any item partially matches this. To modify this behavior use <see cref="Try{TKind,T}(TokenListParser{TKind,T})"/>.</remarks>
+        public TokenListParser<TKind, TResult> Many<TIntermediate, TResult>(
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine
+        )
+            where TIntermediate : allows ref struct
+            where TResult : allows ref struct
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                var result = identity();
+                var from = input;
+                var r = parser(input);
+                while (r.HasValue)
+                {
+                    if (from == r.Remainder) // Broken parser, not a failed parsing.
+                        throw new ParseException(
+                            $"Many() cannot be applied to zero-width parsers; at position {r.Location.Position}.",
+                            r.ErrorPosition
+                        );
+
+                    result = append(result, r.Value);
+                    from = r.Remainder;
+                    r = parser(r.Remainder);
+                }
+
+                if (!r.Backtrack && r.IsPartial(from))
+                    return TokenListParserResult.CastEmpty<TKind, T, TResult>(r);
+
+                return TokenListParserResult.Value(combine(result), input, from);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches <paramref name="parser"/> zero or more times, delimited by <paramref name="delimiter"/>.
+        /// </summary>
+        /// <param name="delimiter">The parser that matches the delimiters.</param>
+        /// <param name="end">A parser to match a final trailing delimiter, if required. Specifying
+        /// <param name="identity">The identity function for the intermediate result.</param>
+        /// <param name="append">The function to append a new value to the intermediate result.</param>
+        /// <param name="combine">The function to combine the intermediate result and the final result.</param>
+        /// <typeparam name="TOther">The type of the resulting value.</typeparam>
+        /// <typeparam name="TIntermediate">The type of the intermediate result.</typeparam>
+        /// <typeparam name="TResult">The type of the final result.</typeparam>
+        /// this can improve error reporting for some lists.</param>
+        /// <returns>The resulting parser.</returns>
+        public TokenListParser<TKind, TResult> ManyDelimitedBy<TOther, TIntermediate, TResult>(
+            TokenListParser<TKind, TOther> delimiter,
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine,
+            TokenListParser<TKind, TOther>? end = null
+        )
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentNullException.ThrowIfNull(delimiter);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                var from = input;
+                var r = parser(input);
+                var result = identity();
+                while (r.HasValue)
+                {
+                    if (from == r.Remainder) // Broken parser, not a failed parsing.
+                        throw new ParseException(
+                            $"AtLeastOnceDelimitedBy() cannot be applied to zero-width parsers; at position {r.Location.Position}.",
+                            r.ErrorPosition
+                        );
+
+                    result = append(result, r.Value);
+
+                    var delimiterResult = delimiter(r.Remainder);
+                    if (!delimiterResult.HasValue)
+                    {
+                        from = r.Remainder;
+                        r = parser(r.Remainder);
+                        break;
+                    }
+
+                    from = delimiterResult.Remainder;
+                    r = parser(delimiterResult.Remainder);
+                }
+
+                if (end is not null)
+                {
+                    var endResult = end(r.Remainder);
+                    if (!endResult.HasValue)
+                    {
+                        return TokenListParserResult.CastEmpty<TKind, T, TResult>(r);
+                    }
+                }
+
+                if (!r.Backtrack && r.IsPartial(from))
+                    return TokenListParserResult.CastEmpty<TKind, T, TResult>(r);
+
+                return TokenListParserResult.Value(combine(result), input, from);
             };
         }
 
@@ -520,11 +800,17 @@ public static class Combinators
         /// Construct a parser that matches one or more instances of applying <paramref name="parser"/>.
         /// </summary>
         /// <returns>The resulting parser.</returns>
-        public TokenListParser<TKind, T[]> AtLeastOnce()
+        public TokenListParser<TKind, ImmutableArray<T>> AtLeastOnce()
         {
             ArgumentNullException.ThrowIfNull(parser);
-            return parser.Then(first =>
-                parser.Many().Select(rest => ArrayEnumerable.Cons(first, rest))
+            return parser.AtLeastOnce(
+                ImmutableArray.CreateBuilder<T>,
+                (b, t) =>
+                {
+                    b.Add(t);
+                    return b;
+                },
+                b => b.DrainToImmutable()
             );
         }
 
@@ -533,30 +819,21 @@ public static class Combinators
         /// </summary>
         /// <param name="count">The number of times to apply <paramref name="parser"/>.</param>
         /// <returns>The resulting parser.</returns>
-        public TokenListParser<TKind, T[]> Repeat(int count)
+        public TokenListParser<TKind, ImmutableArray<T>> Repeat(int count)
         {
             ArgumentNullException.ThrowIfNull(parser);
             ArgumentOutOfRangeException.ThrowIfNegative(count);
 
-            return input =>
-            {
-                // Assuming we'll try the parser and fail quite often, allocating the result
-                // array lazily should save some allocs for not much effort here.
-                T[]? result = null;
-                var remainder = input;
-                for (var i = 0; i < count; ++i)
+            return parser.Repeat(
+                count,
+                ImmutableArray.CreateBuilder<T>,
+                (b, t) =>
                 {
-                    var r = parser(remainder);
-                    if (!r.HasValue)
-                        return TokenListParserResult.CastEmpty<TKind, T, T[]>(r);
-
-                    result ??= new T[count];
-                    result[i] = r.Value;
-                    remainder = r.Remainder;
-                }
-
-                return TokenListParserResult.Value(result ?? [], input, remainder);
-            };
+                    b.Add(t);
+                    return b;
+                },
+                b => b.DrainToImmutable()
+            );
         }
 
         /// <summary>
@@ -565,18 +842,22 @@ public static class Combinators
         /// <typeparam name="TOther">The type of the resulting value.</typeparam>
         /// <param name="delimiter">The parser that matches the delimiters.</param>
         /// <returns>The resulting parser.</returns>
-        public TokenListParser<TKind, T[]> AtLeastOnceDelimitedBy<TOther>(
+        public TokenListParser<TKind, ImmutableArray<T>> AtLeastOnceDelimitedBy<TOther>(
             TokenListParser<TKind, TOther> delimiter
         )
         {
             ArgumentNullException.ThrowIfNull(parser);
             ArgumentNullException.ThrowIfNull(delimiter);
 
-            return parser.Then(first =>
-                delimiter
-                    .IgnoreThen(parser)
-                    .Many()
-                    .Select(rest => ArrayEnumerable.Cons(first, rest))
+            return parser.AtLeastOnceDelimitedBy(
+                delimiter,
+                ImmutableArray.CreateBuilder<T>,
+                (b, t) =>
+                {
+                    b.Add(t);
+                    return b;
+                },
+                b => b.DrainToImmutable()
             );
         }
 
@@ -585,33 +866,19 @@ public static class Combinators
         /// </summary>
         /// <returns>The resulting parser.</returns>
         /// <remarks>Many will fail if any item partially matches this. To modify this behavior use <see cref="Try{TKind,T}(TokenListParser{TKind,T})"/>.</remarks>
-        public TokenListParser<TKind, T[]> Many()
+        public TokenListParser<TKind, ImmutableArray<T>> Many()
         {
             ArgumentNullException.ThrowIfNull(parser);
 
-            return input =>
-            {
-                var result = new List<T>();
-                var from = input;
-                var r = parser(input);
-                while (r.HasValue)
+            return parser.Many(
+                ImmutableArray.CreateBuilder<T>,
+                (b, t) =>
                 {
-                    if (from == r.Remainder) // Broken parser, not a failed parsing.
-                        throw new ParseException(
-                            $"Many() cannot be applied to zero-width parsers; value {r.Value} at position {r.Location.Position}.",
-                            r.ErrorPosition
-                        );
-
-                    result.Add(r.Value);
-                    from = r.Remainder;
-                    r = parser(r.Remainder);
-                }
-
-                if (!r.Backtrack && r.IsPartial(from))
-                    return TokenListParserResult.CastEmpty<TKind, T, T[]>(r);
-
-                return TokenListParserResult.Value(result.ToArray(), input, from);
-            };
+                    b.Add(t);
+                    return b;
+                },
+                b => b.DrainToImmutable()
+            );
         }
 
         /// <summary>
@@ -622,7 +889,7 @@ public static class Combinators
         /// <param name="end">A parser to match a final trailing delimiter, if required. Specifying
         /// this can improve error reporting for some lists.</param>
         /// <returns>The resulting parser.</returns>
-        public TokenListParser<TKind, T[]> ManyDelimitedBy<TOther>(
+        public TokenListParser<TKind, ImmutableArray<T>> ManyDelimitedBy<TOther>(
             TokenListParser<TKind, TOther> delimiter,
             TokenListParser<TKind, TOther>? end = null
         )
@@ -630,22 +897,17 @@ public static class Combinators
             ArgumentNullException.ThrowIfNull(parser);
             ArgumentNullException.ThrowIfNull(delimiter);
 
-            // ReSharper disable once ConvertClosureToMethodGroup
-
-            if (end is not null)
-                return parser
-                    .AtLeastOnceDelimitedBy(delimiter)
-                    .Then(p => end.Value(p))
-                    .Or(end.Value(Array.Empty<T>()));
-
-            return parser
-                .Then(first =>
-                    delimiter
-                        .IgnoreThen(parser)
-                        .Many()
-                        .Select(rest => ArrayEnumerable.Cons(first, rest))
-                )
-                .OptionalOrDefault([]);
+            return parser.ManyDelimitedBy(
+                delimiter,
+                ImmutableArray.CreateBuilder<T>,
+                (b, t) =>
+                {
+                    b.Add(t);
+                    return b;
+                },
+                b => b.DrainToImmutable(),
+                end
+            );
         }
 
         /// <summary>
@@ -754,6 +1016,273 @@ public static class Combinators
                     return Result.CastEmpty<T, Unit>(r);
 
                 return Result.Value(Unit.Value, input, from);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches one or more instances of applying <paramref name="parser"/>.
+        /// </summary>
+        /// <param name="identity">The identity function for the intermediate result.</param>
+        /// <param name="append">The function to append a new value to the intermediate result.</param>
+        /// <param name="combine">The function to combine the intermediate result and the final result.</param>
+        /// <typeparam name="TIntermediate">The type of the intermediate result.</typeparam>
+        /// <typeparam name="TResult">The type of the final result.</typeparam>
+        /// <returns>The resulting parser.</returns>
+        public TextParser<TResult> AtLeastOnce<TIntermediate, TResult>(
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine
+        )
+            where TIntermediate : allows ref struct
+            where TResult : allows ref struct
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                var from = input;
+                var r = parser(input);
+                if (!r.HasValue)
+                {
+                    return Result.CastEmpty<T, TResult>(r);
+                }
+
+                var result = identity();
+                while (r.HasValue)
+                {
+                    if (from == r.Remainder) // Broken parser, not a failed parsing.
+                        throw new ParseException(
+                            $"AtLeastOnce() cannot be applied to zero-width parsers; at position {r.Location.Position}.",
+                            r.Location.Position
+                        );
+
+                    result = append(result, r.Value);
+
+                    from = r.Remainder;
+                    r = parser(r.Remainder);
+                }
+
+                if (!r.Backtrack && r.IsPartial(from))
+                    return Result.CastEmpty<T, TResult>(r);
+
+                return Result.Value(combine(result), input, from);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches a specified number of instances of applying <paramref name="parser"/>.
+        /// </summary>
+        /// <param name="count">The number of times to apply <paramref name="parser"/>.</param>
+        /// <param name="identity">The identity function for the intermediate result.</param>
+        /// <param name="append">The function to append a new value to the intermediate result.</param>
+        /// <param name="combine">The function to combine the intermediate result and the final result.</param>
+        /// <typeparam name="TIntermediate">The type of the intermediate result.</typeparam>
+        /// <typeparam name="TResult">The type of the final result.</typeparam>
+        /// <returns>The resulting parser.</returns>
+        public TextParser<TResult> Repeat<TIntermediate, TResult>(
+            int count,
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine
+        )
+            where TIntermediate : allows ref struct
+            where TResult : allows ref struct
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                // Assuming we'll try the parser and fail quite often, allocating the result
+                // array lazily should save some allocs for not much effort here.
+                var result = identity();
+                var remainder = input;
+                for (var i = 0; i < count; ++i)
+                {
+                    var r = parser(remainder);
+                    if (!r.HasValue)
+                        return Result.CastEmpty<T, TResult>(r);
+
+                    result = append(result, r.Value);
+                    remainder = r.Remainder;
+                }
+
+                return Result.Value(combine(result), input, remainder);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches one or more instances of applying <paramref name="parser"/>, delimited by <paramref name="delimiter"/>.
+        /// </summary>
+        /// <typeparam name="TDelimiter">The type of the resulting value.</typeparam>
+        /// <typeparam name="TIntermediate">The type of the intermediate result.</typeparam>
+        /// <typeparam name="TResult">The type of the final result.</typeparam>
+        /// <param name="delimiter">The parser that matches the delimiters.</param>
+        /// <param name="identity">The identity function for the intermediate result.</param>
+        /// <param name="append">The function to append a new value to the intermediate result.</param>
+        /// <param name="combine">The function to combine the intermediate result and the final result.</param>
+        /// <returns>The resulting parser.</returns>
+        public TextParser<TResult> AtLeastOnceDelimitedBy<TDelimiter, TIntermediate, TResult>(
+            TextParser<TDelimiter> delimiter,
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine
+        )
+            where TDelimiter : allows ref struct
+            where TIntermediate : allows ref struct
+            where TResult : allows ref struct
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentNullException.ThrowIfNull(delimiter);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                var from = input;
+                var r = parser(input);
+                if (!r.HasValue)
+                {
+                    return Result.CastEmpty<T, TResult>(r);
+                }
+
+                var result = identity();
+                while (r.HasValue)
+                {
+                    if (from == r.Remainder) // Broken parser, not a failed parsing.
+                        throw new ParseException(
+                            $"AtLeastOnceDelimitedBy() cannot be applied to zero-width parsers; at position {r.Location.Position}.",
+                            r.Location.Position
+                        );
+
+                    result = append(result, r.Value);
+
+                    var delimiterResult = delimiter(r.Remainder);
+                    if (!delimiterResult.HasValue)
+                    {
+                        break;
+                    }
+
+                    from = r.Remainder;
+                    r = parser(r.Remainder);
+                }
+
+                if (!r.Backtrack && r.IsPartial(from))
+                    return Result.CastEmpty<T, TResult>(r);
+
+                return Result.Value(combine(result), input, from);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches <paramref name="parser"/> zero or more times.
+        /// </summary>
+        /// <returns>The resulting parser.</returns>
+        /// <remarks>Many will fail if any item partially matches this. To modify this behavior use <see cref="Try{T}(TextParser{T})"/>.</remarks>
+        public TextParser<TResult> Many<TIntermediate, TResult>(
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine
+        )
+            where TIntermediate : allows ref struct
+            where TResult : allows ref struct
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                var result = identity();
+                var from = input;
+                var r = parser(input);
+                while (r.HasValue)
+                {
+                    if (from == r.Remainder) // Broken parser, not a failed parsing.
+                        throw new ParseException(
+                            $"Many() cannot be applied to zero-width parsers; at position {r.Location.Position}.",
+                            r.Location.Position
+                        );
+
+                    result = append(result, r.Value);
+
+                    from = r.Remainder;
+                    r = parser(r.Remainder);
+                }
+
+                if (!r.Backtrack && r.IsPartial(from))
+                    return Result.CastEmpty<T, TResult>(r);
+
+                return Result.Value(combine(result), input, from);
+            };
+        }
+
+        /// <summary>
+        /// Construct a parser that matches <paramref name="parser"/> zero or more times, delimited by <paramref name="delimiter"/>.
+        /// </summary>
+        /// <typeparam name="TOther">The type of the resulting value.</typeparam>
+        /// <typeparam name="TIntermediate">The type of the intermediate result.</typeparam>
+        /// <typeparam name="TResult">The type of the final result.</typeparam>
+        /// <param name="delimiter">The parser that matches the delimiters.</param>
+        /// <param name="identity">The identity function for the intermediate result.</param>
+        /// <param name="append">The function to append a new value to the intermediate result.</param>
+        /// <param name="combine">The function to combine the intermediate result and the final result.</param>
+        /// <returns>The resulting parser.</returns>
+        public TextParser<TResult> ManyDelimitedBy<TOther, TIntermediate, TResult>(
+            TextParser<TOther> delimiter,
+            Func<TIntermediate> identity,
+            Func<TIntermediate, T, TIntermediate> append,
+            Func<TIntermediate, TResult> combine
+        )
+            where TOther : allows ref struct
+            where TIntermediate : allows ref struct
+            where TResult : allows ref struct
+        {
+            ArgumentNullException.ThrowIfNull(parser);
+            ArgumentNullException.ThrowIfNull(delimiter);
+            ArgumentNullException.ThrowIfNull(identity);
+            ArgumentNullException.ThrowIfNull(append);
+            ArgumentNullException.ThrowIfNull(combine);
+
+            return input =>
+            {
+                var from = input;
+                var r = parser(input);
+                var result = identity();
+                while (r.HasValue)
+                {
+                    if (from == r.Remainder) // Broken parser, not a failed parsing.
+                        throw new ParseException(
+                            $"AtLeastOnceDelimitedBy() cannot be applied to zero-width parsers; at position {r.Location.Position}.",
+                            r.Location.Position
+                        );
+
+                    result = append(result, r.Value);
+
+                    var delimiterResult = delimiter(r.Remainder);
+                    if (!delimiterResult.HasValue)
+                    {
+                        from = r.Remainder;
+                        r = parser(r.Remainder);
+                        break;
+                    }
+
+                    from = delimiterResult.Remainder;
+                    r = parser(delimiterResult.Remainder);
+                }
+
+                if (!r.Backtrack && r.IsPartial(from))
+                    return Result.CastEmpty<T, TResult>(r);
+
+                return Result.Value(combine(result), input, from);
             };
         }
 
@@ -1047,11 +1576,16 @@ public static class Combinators
         /// Construct a parser that matches one or more instances of applying <paramref name="parser"/>.
         /// </summary>
         /// <returns>The resulting parser.</returns>
-        public TextParser<T[]> AtLeastOnce()
+        public TextParser<ImmutableArray<T>> AtLeastOnce()
         {
-            ArgumentNullException.ThrowIfNull(parser);
-            return parser.Then(first =>
-                parser.Many().Select(rest => ArrayEnumerable.Cons(first, rest))
+            return parser.AtLeastOnce(
+                ImmutableArray.CreateBuilder<T>,
+                (b, e) =>
+                {
+                    b.Add(e);
+                    return b;
+                },
+                b => b.DrainToImmutable()
             );
         }
 
@@ -1060,30 +1594,21 @@ public static class Combinators
         /// </summary>
         /// <param name="count">The number of times to apply <paramref name="parser"/>.</param>
         /// <returns>The resulting parser.</returns>
-        public TextParser<T[]> Repeat(int count)
+        public TextParser<ImmutableArray<T>> Repeat(int count)
         {
             ArgumentNullException.ThrowIfNull(parser);
             ArgumentOutOfRangeException.ThrowIfNegative(count);
 
-            return input =>
-            {
-                // Assuming we'll try the parser and fail quite often, allocating the result
-                // array lazily should save some allocs for not much effort here.
-                T[]? result = null;
-                var remainder = input;
-                for (var i = 0; i < count; ++i)
+            return parser.Repeat(
+                count,
+                ImmutableArray.CreateBuilder<T>,
+                (b, e) =>
                 {
-                    var r = parser(remainder);
-                    if (!r.HasValue)
-                        return Result.CastEmpty<T, T[]>(r);
-
-                    result ??= new T[count];
-                    result[i] = r.Value;
-                    remainder = r.Remainder;
-                }
-
-                return Result.Value(result ?? [], input, remainder);
-            };
+                    b.Add(e);
+                    return b;
+                },
+                b => b.DrainToImmutable()
+            );
         }
 
         /// <summary>
@@ -1092,16 +1617,19 @@ public static class Combinators
         /// <typeparam name="TDelimiter">The type of the resulting value.</typeparam>
         /// <param name="delimiter">The parser that matches the delimiters.</param>
         /// <returns>The resulting parser.</returns>
-        public TextParser<T[]> AtLeastOnceDelimitedBy<TDelimiter>(TextParser<TDelimiter> delimiter)
+        public TextParser<ImmutableArray<T>> AtLeastOnceDelimitedBy<TDelimiter>(
+            TextParser<TDelimiter> delimiter
+        )
         {
-            ArgumentNullException.ThrowIfNull(parser);
-            ArgumentNullException.ThrowIfNull(delimiter);
-
-            return parser.Then(first =>
-                delimiter
-                    .IgnoreThen(parser)
-                    .Many()
-                    .Select(rest => ArrayEnumerable.Cons(first, rest))
+            return parser.AtLeastOnceDelimitedBy(
+                delimiter,
+                ImmutableArray.CreateBuilder<T>,
+                (b, e) =>
+                {
+                    b.Add(e);
+                    return b;
+                },
+                b => b.DrainToImmutable()
             );
         }
 
@@ -1110,34 +1638,19 @@ public static class Combinators
         /// </summary>
         /// <returns>The resulting parser.</returns>
         /// <remarks>Many will fail if any item partially matches this. To modify this behavior use <see cref="Try{T}(TextParser{T})"/>.</remarks>
-        public TextParser<T[]> Many()
+        public TextParser<ImmutableArray<T>> Many()
         {
             ArgumentNullException.ThrowIfNull(parser);
 
-            return input =>
-            {
-                var result = new List<T>();
-                var from = input;
-                var r = parser(input);
-                while (r.HasValue)
+            return parser.Many(
+                ImmutableArray.CreateBuilder<T>,
+                (b, e) =>
                 {
-                    if (from == r.Remainder) // Broken parser, not a failed parsing.
-                        throw new ParseException(
-                            $"Many() cannot be applied to zero-width parsers; value {r.Value} at position {r.Location.Position}.",
-                            r.Location.Position
-                        );
-
-                    result.Add(r.Value);
-
-                    from = r.Remainder;
-                    r = parser(r.Remainder);
-                }
-
-                if (!r.Backtrack && r.IsPartial(from))
-                    return Result.CastEmpty<T, T[]>(r);
-
-                return Result.Value(result.ToArray(), input, from);
-            };
+                    b.Add(e);
+                    return b;
+                },
+                b => b.DrainToImmutable()
+            );
         }
 
         /// <summary>
@@ -1146,19 +1659,21 @@ public static class Combinators
         /// <typeparam name="TOther">The type of the resulting value.</typeparam>
         /// <param name="delimiter">The parser that matches the delimiters.</param>
         /// <returns>The resulting parser.</returns>
-        public TextParser<T[]> ManyDelimitedBy<TOther>(TextParser<TOther> delimiter)
+        public TextParser<ImmutableArray<T>> ManyDelimitedBy<TOther>(TextParser<TOther> delimiter)
         {
             ArgumentNullException.ThrowIfNull(parser);
             ArgumentNullException.ThrowIfNull(delimiter);
 
-            return parser
-                .Then(first =>
-                    delimiter
-                        .IgnoreThen(parser)
-                        .Many()
-                        .Select(rest => ArrayEnumerable.Cons(first, rest))
-                )
-                .OptionalOrDefault(Array.Empty<T>());
+            return parser.ManyDelimitedBy(
+                delimiter,
+                ImmutableArray.CreateBuilder<T>,
+                (b, e) =>
+                {
+                    b.Add(e);
+                    return b;
+                },
+                b => b.DrainToImmutable()
+            );
         }
 
         /// <summary>
@@ -1182,6 +1697,14 @@ public static class Combinators
     /// <returns>The resulting parser.</returns>
     public static TextParser<string> Text(this TextParser<char[]> parser) =>
         parser.Select(chars => new string(chars));
+
+    /// <summary>
+    /// Constructs a parser that converts a char[]-parser to a string-parser.
+    /// </summary>
+    /// <param name="parser">The parser.</param>
+    /// <returns>The resulting parser.</returns>
+    public static TextParser<string> Text(this TextParser<ImmutableArray<char>> parser) =>
+        parser.Select(chars => new string(chars.AsSpan()));
 
     /// <summary>
     /// Constructs a parser that converts a TextSpan-parser to a string-parser.

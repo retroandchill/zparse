@@ -7,7 +7,7 @@ namespace DateTimeParser;
 public static class DateTimeTextParser
 {
     private static TextParser<int> IntDigits(int count) =>
-        Character.Digit.Repeat(count).Select(chars => int.Parse(new string(chars)));
+        Character.Digit.Repeat(count).Select(chars => int.Parse(new string(chars.AsSpan())));
 
     private static TextParser<int> TwoDigits { get; } = IntDigits(2);
     private static TextParser<int> FourDigits { get; } = IntDigits(4);

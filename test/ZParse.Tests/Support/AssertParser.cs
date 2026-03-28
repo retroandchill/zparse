@@ -14,6 +14,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Xunit;
 using ZParse.Model;
@@ -23,7 +24,7 @@ namespace ZParse.Tests.Support;
 internal static class AssertParser
 {
     public static void SucceedsWithMany<T>(
-        TextParser<T[]> parser,
+        TextParser<ImmutableArray<T>> parser,
         string input,
         IEnumerable<T> expectedResult
     )
@@ -33,10 +34,10 @@ internal static class AssertParser
 
     public static void SucceedsWithAll(TextParser<TextSpan> parser, string input)
     {
-        SucceedsWithAll(parser.Select(s => s.ToStringValue().ToCharArray()), input);
+        SucceedsWithAll(parser.Select(s => s.ToStringValue().ToImmutableArray()), input);
     }
 
-    public static void SucceedsWithAll(TextParser<char[]> parser, string input)
+    public static void SucceedsWithAll(TextParser<ImmutableArray<char>> parser, string input)
     {
         SucceedsWithMany(parser, input, input.ToCharArray());
     }
@@ -107,7 +108,7 @@ internal static class AssertParser
     }
 
     public static void SucceedsWithMany(
-        TokenListParser<char, Token<char>[]> parser,
+        TokenListParser<char, ImmutableArray<Token<char>>> parser,
         string input,
         IEnumerable<char> expectedResult
     )
@@ -119,7 +120,10 @@ internal static class AssertParser
         );
     }
 
-    public static void SucceedsWithAll(TokenListParser<char, Token<char>[]> parser, string input)
+    public static void SucceedsWithAll(
+        TokenListParser<char, ImmutableArray<Token<char>>> parser,
+        string input
+    )
     {
         SucceedsWithMany(
             parser.Select(t => t.Select(tk => tk.Kind).ToArray()),
@@ -166,6 +170,24 @@ internal static class AssertParser
             v =>
             {
                 Assert.Equal(value, v);
+            }
+        );
+    }
+
+    // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Global
+    public static void SucceedsWith<T>(
+        TokenListParser<char, ImmutableArray<T>> parser,
+        string input,
+        ImmutableArray<T> value
+    )
+    {
+        // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
+        Succeeds(
+            parser,
+            input,
+            v =>
+            {
+                Assert.True(value.SequenceEqual(v));
             }
         );
     }
