@@ -740,15 +740,6 @@ public static class Combinators
                 {
                     if (from == r.Remainder) // Broken parser, not a failed parsing.
                     {
-                        var asString = Result<T>.Stringify?.Invoke(r.Value);
-                        if (asString is not null)
-                        {
-                            throw new ParseException(
-                                $"IgnoreMany() cannot be applied to zero-width parsers; value {asString} at position {r.Location.Position}.",
-                                r.Location.Position
-                            );
-                        }
-
                         throw new ParseException(
                             $"IgnoreMany() cannot be applied to zero-width parsers; value at position {r.Location.Position}.",
                             r.Location.Position

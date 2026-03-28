@@ -51,7 +51,7 @@ public class NumberListTokenizer : Tokenizer<NumberListToken, NumberListTokenize
 
         public void Dispose()
         {
-            throw new System.NotImplementedException();
+            // No resources to dispose of
         }
     }
 }

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using ZParse.Model;
 using ZParse.Parsers;
 
@@ -15,6 +14,7 @@ internal class SExpressionTokenizer : Tokenizer<SExpressionToken, SExpressionTok
     public ref struct Enumerator : ITokenEnumerator<SExpressionToken>
     {
         private Result<char> _next;
+        private bool _consumingCharacterSuffix;
 
         internal Enumerator(Result<char> next)
         {
@@ -29,22 +29,9 @@ internal class SExpressionTokenizer : Tokenizer<SExpressionToken, SExpressionTok
                 return false;
             }
 
-            if (_next.Value == '(')
+            if (_consumingCharacterSuffix)
             {
-                token = Result.Value(SExpressionToken.LParen, _next.Location, _next.Remainder);
-                _next = _next.Remainder.ConsumeChar();
-            }
-            else if (_next.Value == ')')
-            {
-                token = Result.Value(SExpressionToken.RParen, _next.Location, _next.Remainder);
-                _next = _next.Remainder.ConsumeChar();
-            }
-            else if (_next.Value is >= '0' and <= '9')
-            {
-                var integer = Numerics.Integer(_next.Location);
-                _next = integer.Remainder.ConsumeChar();
-
-                token = Result.Value(SExpressionToken.Number, integer.Location, integer.Remainder);
+                _consumingCharacterSuffix = false;
 
                 if (
                     _next.HasValue
@@ -56,17 +43,48 @@ internal class SExpressionTokenizer : Tokenizer<SExpressionToken, SExpressionTok
                         _next.Location,
                         ["whitespace", "punctuation"]
                     );
-                }
-            }
-            else
-            {
-                var beginIdentifier = _next.Location;
-                while (_next.HasValue && char.IsLetterOrDigit(_next.Value))
-                {
-                    _next = _next.Remainder.ConsumeChar();
+
+                    _next = SkipWhiteSpace(_next.Location);
+                    return true;
                 }
 
-                token = Result.Value(SExpressionToken.Atom, beginIdentifier, _next.Location);
+                _next = SkipWhiteSpace(_next.Location);
+            }
+
+            switch (_next.Value)
+            {
+                case '(':
+                    token = Result.Value(SExpressionToken.LParen, _next.Location, _next.Remainder);
+                    _next = _next.Remainder.ConsumeChar();
+                    break;
+                case ')':
+                    token = Result.Value(SExpressionToken.RParen, _next.Location, _next.Remainder);
+                    _next = _next.Remainder.ConsumeChar();
+                    break;
+                case >= '0' and <= '9':
+                {
+                    var integer = Numerics.Integer(_next.Location);
+                    _next = integer.Remainder.ConsumeChar();
+
+                    token = Result.Value(
+                        SExpressionToken.Number,
+                        integer.Location,
+                        integer.Remainder
+                    );
+                    _consumingCharacterSuffix = true;
+                    return true;
+                }
+                default:
+                {
+                    var beginIdentifier = _next.Location;
+                    while (_next.HasValue && char.IsLetterOrDigit(_next.Value))
+                    {
+                        _next = _next.Remainder.ConsumeChar();
+                    }
+
+                    token = Result.Value(SExpressionToken.Atom, beginIdentifier, _next.Location);
+                    break;
+                }
             }
 
             _next = SkipWhiteSpace(_next.Location);

@@ -78,7 +78,7 @@ internal class ArithmeticExpressionTokenizer
 
         public void Dispose()
         {
-            throw new System.NotImplementedException();
+            // No resources to dispose of
         }
     }
 }

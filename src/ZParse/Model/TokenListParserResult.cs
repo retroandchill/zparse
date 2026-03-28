@@ -151,12 +151,7 @@ public ref struct TokenListParserResult<TKind, T>
             return "(Empty result.)";
 
         if (HasValue)
-        {
-            var asString = Result<T>.Stringify?.Invoke(Value);
-            return asString is not null
-                ? $"Successful parsing of {asString}."
-                : "Successful parsing.";
-        }
+            return "Successful parsing.";
 
         var message = FormatErrorMessageFragment();
         var location = "";

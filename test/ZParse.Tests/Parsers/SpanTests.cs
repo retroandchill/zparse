@@ -134,12 +134,10 @@ public class SpanTests
     [InlineData("Begin123STOPEnd")]
     public void ExceptMatchesWhenTheInputAbsolutePositionIsNonZero(string text)
     {
-        var test =
-            from begin in Span.EqualTo("Begin")
-            from value in Span.Except("STOP")
-            from stop in Span.EqualTo("STOP")
-            from end in Span.EqualTo("End")
-            select value;
+        var test = Span.EqualTo("Begin")
+            .SelectMany(_ => Span.Except("STOP"), RefTuple.Create)
+            .SelectMany(_ => Span.EqualTo("STOP"), RefTuple.Create)
+            .SelectMany(_ => Span.EqualTo("End"), (t, _) => t.Item1.Item2);
         var result = test.Parse(text).ToStringValue();
 
         Assert.Equal("123", result);

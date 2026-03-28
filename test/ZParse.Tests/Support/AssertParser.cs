@@ -76,11 +76,7 @@ internal static class AssertParser
 
         if (result.HasValue)
         {
-            var asString = Result<T>.Stringify?.Invoke(result.Value);
-            var userMessage = asString is not null
-                ? $"Expected failure but succeeded with {asString}."
-                : $"Expected failure but succeeded.";
-            Assert.False(result.HasValue, userMessage);
+            Assert.False(result.HasValue, "Expected failure but succeeded.");
         }
 
         resultAssertion(result);

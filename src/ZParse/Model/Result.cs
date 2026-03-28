@@ -66,15 +66,6 @@ public readonly ref struct Result<T>
     public T Value =>
         HasValue ? field : throw new InvalidOperationException($"{nameof(Result)} has no value.");
 
-    internal static readonly Func<T, string>? Stringify;
-
-    static Result()
-    {
-        Stringify = typeof(T)
-            .GetMethod(nameof(ToString), Type.EmptyTypes)
-            ?.CreateDelegate<Func<T, string>>();
-    }
-
     internal Result(T value, TextSpan location, TextSpan remainder, bool backtrack)
     {
         Location = location;
@@ -126,9 +117,7 @@ public readonly ref struct Result<T>
 
         if (HasValue)
         {
-            return Stringify is not null
-                ? $"Successful parsing of {Stringify(Value)}."
-                : "Successful parsing.";
+            return "Successful parsing.";
         }
 
         var message = FormatErrorMessageFragment();

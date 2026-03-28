@@ -290,7 +290,9 @@ public static class Span
 
         return input =>
         {
-            var matchIndex = input.Source[input.Position.Absolute..].IndexOf(text, comparison);
+            var matchIndex =
+                input.Source[input.Position.Absolute..].IndexOf(text, comparison)
+                + input.Position.Absolute;
             if (input.Length == 0 || matchIndex == input.Position.Absolute)
                 return Result.Empty<TextSpan>(input, expectations);
 

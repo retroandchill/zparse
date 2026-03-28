@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using ZParse.Model;
 using ZParse.Parsers;
 
@@ -16,6 +15,7 @@ internal class SExpressionXTokenizer
     public ref struct Enumerator : ITokenEnumerator<SExpressionXToken>
     {
         private Result<char> _next;
+        private bool _consumingCharacterSuffix;
 
         internal Enumerator(Result<char> next)
         {
@@ -30,60 +30,74 @@ internal class SExpressionXTokenizer
                 return false;
             }
 
-            if (_next.Value == '(')
+            if (_consumingCharacterSuffix)
             {
-                token = Result.Value(
-                    new SExpressionXToken(SExpressionType.LParen),
-                    _next.Location,
-                    _next.Remainder
-                );
-                _next = _next.Remainder.ConsumeChar();
-            }
-            else if (_next.Value == ')')
-            {
-                token = Result.Value(
-                    new SExpressionXToken(SExpressionType.RParen),
-                    _next.Location,
-                    _next.Remainder
-                );
-                _next = _next.Remainder.ConsumeChar();
-            }
-            else if (_next.Value >= '0' && _next.Value <= '9')
-            {
-                var integer = Numerics.IntegerInt32(_next.Location);
-                _next = integer.Remainder.ConsumeChar();
-
-                token = Result.Value(
-                    new SExpressionXToken(integer.Value),
-                    integer.Location,
-                    integer.Remainder
-                );
-
+                _consumingCharacterSuffix = false;
                 if (
                     _next.HasValue
                     && !char.IsPunctuation(_next.Value)
                     && !char.IsWhiteSpace(_next.Value)
                 )
                 {
-                    token = Result.Empty<SExpressionXToken>(
+                    token = token = Result.Empty<SExpressionXToken>(
                         _next.Location,
                         ["whitespace", "punctuation"]
                     );
-                }
-            }
-            else
-            {
-                var beginIdentifier = _next.Location;
-                while (_next.HasValue && char.IsLetterOrDigit(_next.Value))
-                {
-                    _next = _next.Remainder.ConsumeChar();
+
+                    _next = SkipWhiteSpace(_next.Location);
+                    return true;
                 }
 
-                token = Result.Value(
-                    new SExpressionXToken(SExpressionType.Atom),
-                    beginIdentifier,
-                    _next.Location
-                );
+                _next = SkipWhiteSpace(_next.Location);
+            }
+
+            switch (_next.Value)
+            {
+                case '(':
+                    token = Result.Value(
+                        new SExpressionXToken(SExpressionType.LParen),
+                        _next.Location,
+                        _next.Remainder
+                    );
+                    _next = _next.Remainder.ConsumeChar();
+                    break;
+                case ')':
+                    token = Result.Value(
+                        new SExpressionXToken(SExpressionType.RParen),
+                        _next.Location,
+                        _next.Remainder
+                    );
+                    _next = _next.Remainder.ConsumeChar();
+                    break;
+                case >= '0' and <= '9':
+                {
+                    var integer = Numerics.IntegerInt32(_next.Location);
+                    _next = integer.Remainder.ConsumeChar();
+
+                    token = Result.Value(
+                        new SExpressionXToken(integer.Value),
+                        integer.Location,
+                        integer.Remainder
+                    );
+
+                    _consumingCharacterSuffix = true;
+                    return true;
+                }
+                default:
+                {
+                    var beginIdentifier = _next.Location;
+                    while (_next.HasValue && char.IsLetterOrDigit(_next.Value))
+                    {
+                        _next = _next.Remainder.ConsumeChar();
+                    }
+
+                    token = Result.Value(
+                        new SExpressionXToken(SExpressionType.Atom),
+                        beginIdentifier,
+                        _next.Location
+                    );
+                    break;
+                }
             }
 
             _next = SkipWhiteSpace(_next.Location);
